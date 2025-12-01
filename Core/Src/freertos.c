@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * File Name          : freertos.c
-  * Description        : Code for freertos applications
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * File Name          : freertos.c
+ * Description        : Code for freertos applications
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "led.h"
+#include "My_Task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -68,17 +68,17 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 void vApplicationIdleHook(void);
 
 /* USER CODE BEGIN 2 */
-void vApplicationIdleHook( void )
+void vApplicationIdleHook(void)
 {
-   /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
-   to 1 in FreeRTOSConfig.h. It will be called on each iteration of the idle
-   task. It is essential that code added to this hook function never attempts
-   to block in any way (for example, call xQueueReceive() with a block time
-   specified, or call vTaskDelay()). If the application makes use of the
-   vTaskDelete() API function (as this demo application does) then it is also
-   important that vApplicationIdleHook() is permitted to return to its calling
-   function, because it is the responsibility of the idle task to clean up
-   memory allocated by the kernel to any task that has since been deleted. */
+  /* vApplicationIdleHook() will only be called if configUSE_IDLE_HOOK is set
+  to 1 in FreeRTOSConfig.h. It will be called on each iteration of the idle
+  task. It is essential that code added to this hook function never attempts
+  to block in any way (for example, call xQueueReceive() with a block time
+  specified, or call vTaskDelay()). If the application makes use of the
+  vTaskDelete() API function (as this demo application does) then it is also
+  important that vApplicationIdleHook() is permitted to return to its calling
+  function, because it is the responsibility of the idle task to clean up
+  memory allocated by the kernel to any task that has since been deleted. */
 }
 /* USER CODE END 2 */
 
@@ -124,20 +124,21 @@ void MX_FREERTOS_Init(void) {
 
 /* USER CODE BEGIN Header_Start_TaskInit */
 /**
-  * @brief  Function implementing the All_TaskInit thread.
-  * @param  argument: Not used
-  * @retval None
-  */
+ * @brief  Function implementing the All_TaskInit thread.
+ * @param  argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_Start_TaskInit */
 void Start_TaskInit(void *argument)
 {
   /* USER CODE BEGIN Start_TaskInit */
+	
+	My_Drivers_Init();
+  // 删除此任务
+  vTaskDelete(NULL);
   /* Infinite loop */
-  for(;;)
+  for (;;)
   {
-		Bsp_LedOFF;
-		vTaskDelay(1000);
-
   }
   /* USER CODE END Start_TaskInit */
 }

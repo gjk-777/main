@@ -59,9 +59,20 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define Bsp_Led_Pin GPIO_PIN_13
 #define Bsp_Led_GPIO_Port GPIOC
+#define Body_PA1_Pin GPIO_PIN_1
+#define Body_PA1_GPIO_Port GPIOA
+#define DHT11_PA11_Pin GPIO_PIN_11
+#define DHT11_PA11_GPIO_Port GPIOA
+#define SCL_PB8_Pin GPIO_PIN_8
+#define SCL_PB8_GPIO_Port GPIOB
+#define SDA_PB9_Pin GPIO_PIN_9
+#define SDA_PB9_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
+/* USER CODE BEGIN Prototypes */
+#include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
