@@ -144,7 +144,7 @@ void Net_SendMsg_T(void *pvParameters)
     {
         OneNet_SendData(); // 发送数据
         ESP8266_Clear1_2();
-        vTaskDelay(200);
+        vTaskDelay(100);
     }
 }
 void Net_RecvMsg_T(void *pvParameters)
