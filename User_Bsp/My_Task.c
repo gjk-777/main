@@ -41,6 +41,7 @@ TaskHandle_t xEspLinkTaskHandle;
 TaskHandle_t xSendMsgHandle_t;
 TaskHandle_t xRecvMsgHandle_t;
 TaskHandle_t xSensorTaskHandle;
+TaskHandle_t xKeyGetHandle_t;
 
 void check_memory()
 {
@@ -58,6 +59,7 @@ static void Name_Show()
 
 void My_Led_Task(void *pvParameters)
 {
+    (void)pvParameters;
     uint32_t i = 0;
     uint32_t TotalRunTime = 0;
     UBaseType_t task_num = 0;
@@ -96,7 +98,7 @@ void My_Led_Task(void *pvParameters)
 
 void Home_Task(void *pvParameters)
 {
-
+    (void)pvParameters;
     while (1)
     {
         OLED_Clear();
@@ -117,6 +119,7 @@ void Home_Task(void *pvParameters)
 
 void EspLink_Task(void *pvParameters)
 {
+    (void)pvParameters;
     // M24C02_Test();
     // PassiveBuzzer_Test();
     /** */
@@ -140,6 +143,7 @@ void EspLink_Task(void *pvParameters)
 }
 void Net_SendMsg_T(void *pvParameters)
 {
+    (void)pvParameters;
     for (;;)
     {
         OneNet_SendData(); // 发送数据
@@ -149,6 +153,7 @@ void Net_SendMsg_T(void *pvParameters)
 }
 void Net_RecvMsg_T(void *pvParameters)
 {
+    (void)pvParameters;
     for (;;)
     {
         dataPtr = Get_xiafa_data(2);
@@ -183,7 +188,10 @@ void Sensor_Task(void *pvParameters)
         vTaskDelay(1000);
     }
 }
-
+void Key_Get_Task(void *pvParameters)
+{
+    (void)pvParameters;
+}
 void My_Task_Init(void)
 {
     xTaskCreate(EspLink_Task, "EspLink_Task", 750, NULL, 15, &xEspLinkTaskHandle);
@@ -204,6 +212,9 @@ void My_Task_Init(void)
     xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
     if (xSensorTaskHandle == NULL)
         printf("Sensor_Task create failed\r\n");
+    xTaskCreate(Key_Get_Task, "Key_Get_Task", 256, NULL, 10, &xKeyGetHandle_t);
+    if (xKeyGetHandle_t == NULL)
+        printf("Key_Get_Task create failed\r\n");
 }
 
 void My_Drivers_Init(void)
