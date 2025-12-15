@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file    spi.c
-  * @brief   This file provides code for the configuration
-  *          of the SPI instances.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file    spi.c
+ * @brief   This file provides code for the configuration
+ *          of the SPI instances.
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "spi.h"
@@ -120,5 +120,37 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
 }
 
 /* USER CODE BEGIN 1 */
+/*-------------------------------------------------*/
+/*��������SPI�շ�һ���ֽ�                          */
+/*��  ����txd��Ҫ���͵�����                        */
+/*����ֵ�����յ�������                             */
+/*-------------------------------------------------*/
+uint8_t SPI0_ReadWriteByte(uint8_t txd)
+{
+  uint8_t rxdata;
+  HAL_SPI_TransmitReceive(&hspi1, &txd, &rxdata, 1, 1000);
+  return rxdata; /* �����յ������� */
+}
+/*-------------------------------------------------*/
+/*��������SPI������                                */
+/*��  ����wdata����������ָ��  datalen�����ͳ���   */
+/*����ֵ����                                       */
+/*-------------------------------------------------*/
+void SPI0_Write(uint8_t *wdata, uint16_t datalen)
+{
+  // ʹ��HAL���������ͺ������ѭ�������Ч��
+  HAL_SPI_Transmit(&hspi1, wdata, datalen, HAL_MAX_DELAY);
+}
+/*-------------------------------------------------*/
+/*��������SPI��������                              */
+/*��  ����rdata�����ջ�����  datalen�����ճ���     */
+/*����ֵ����                                       */
+/*-------------------------------------------------*/
+void SPI0_Read(uint8_t *rdata, uint16_t datalen)
+{
+  // ʹ��HAL���������պ������ѭ�������Ч��
+  // SPI��ȫ˫��Э�飬HAL_SPI_Receive�ڲ����Զ�����dummy����(0x00)
+  HAL_SPI_Receive(&hspi1, rdata, datalen, HAL_MAX_DELAY);
+}
 
 /* USER CODE END 1 */

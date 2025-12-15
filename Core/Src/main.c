@@ -102,7 +102,6 @@ int main(void)
   MX_ADC2_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-  // �ȴ�У׼���
   HAL_ADCEx_Calibration_Start(&hadc1);
   HAL_ADCEx_Calibration_Start(&hadc2);
   /* USER CODE END 2 */

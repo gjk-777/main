@@ -212,33 +212,24 @@ float MQ2_GetPPM()
 {
   uint16_t ADC_Val;
   ADC_Val = ADC_Get(&hadc1);
-  float vol = ADC_Val * 5.0f / 4096.0f; // STM32F1通常使用3.3V参考电压，使用浮点数计算
-  printf("Mq2烟雾浓度_vol : %.2f\r\n",vol);
-	float RS = (5 - vol) / (vol * 0.5);
+  float vol = ADC_Val * 3.3 / 4096.0f; // STM32F1通常使用3.3V参考电压，使用浮点数计算
+  printf("Mq2烟雾浓度_vol : %.2f\r\n", vol);
+  float RS = (3.3 - vol) / (vol * 0.5);
   float R0 = 6.64;
-  float ppm = pow(21.72 * R0/RS, 2.1101f);
+  float ppm = pow(11.5428 * R0 / RS, 0.6549f);
   return ppm;
-}
-float CO_Get_Vol()
-{
-  uint16_t adc_value = 0; // 这是从MQ-7传感器模块电压输出的ADC转换中获得的原始数字值，该值的范围为0到4095，将模拟电压表示为数字值
-  float voltage = 0;      // MQ-7传感器模块的电压输出，与一氧化碳的浓度成正比
-  adc_value = ADC_Get(&hadc2);
-  mdelay(5);
-  voltage = (3.3f / 4095.0f) * adc_value; // 统一使用4095作为满量程，与其他函数保持一致
-  return voltage;
 }
 
 
 float CO_MQ7_GetPPM()
-{  
-	uint16_t ADC_Val;
+{
+  uint16_t ADC_Val;
   ADC_Val = ADC_Get(&hadc2);
-  float vol = ADC_Val * 5.0f / 4096.0f; // STM32F1通常使用3.3V参考电压，使用浮点数计算
-  printf("Mq7_一氧化碳_vol : %.2f\r\n",vol);
+  float vol = ADC_Val * 3.3 / 4096.0f; // STM32F1通常使用3.3V参考电压，使用浮点数计算
+  printf("Mq7_一氧化碳_vol : %.2f\r\n", vol);
   float R0 = 6.64;
-  float RS = (5 - vol)/(vol*0.5); // 使用3.3V参考电压，与实际硬件一致
-  float ppm = pow(21.72 * R0/RS, 2.1101f);
+  float RS = (3.3 - vol) / (vol * 0.5); // 使用3.3V参考电压，与实际硬件一致
+  float ppm = pow(11.5428 * R0 / RS, 0.6549f);
   return ppm;
 }
 

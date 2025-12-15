@@ -8,6 +8,8 @@ extern TIM_HandleTypeDef htim1;
 
 static TIM_HandleTypeDef *g_HPWM_PassiveBuzzer = &htim1;
 
+bool beep_status = false;
+
 /**********************************************************************
  * 函数名称： PassiveBuzzer_Init
  * 功能描述： 无源蜂鸣器的初始化函数
@@ -48,6 +50,25 @@ void PassiveBuzzer_Init(void)
     HAL_TIM_PWM_ConfigChannel(g_HPWM_PassiveBuzzer, &sConfig, TIM_CHANNEL_1);
 }
 
+void Beep_GPIO_Init()
+{
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    /*Configure GPIO pin Output Level */
+
+    GPIO_InitStruct.Pin = GPIO_PIN_8;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+}
+void Beep_OnOff(bool on)
+{
+    beep_status = on ? 1 : 0;
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, on ? GPIO_PIN_RESET : GPIO_PIN_SET);
+}
 /**********************************************************************
  * 函数名称： PassiveBuzzer_Control
  * 功能描述： 无源蜂鸣器控制函数

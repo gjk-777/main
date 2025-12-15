@@ -37,5 +37,9 @@ void PassiveBuzzer_Set_Freq_Duty(int freq, int duty);
  * 返 回 值： 无
  ***********************************************************************/
 void PassiveBuzzer_Test(void);
+#include "stdbool.h"
+void Beep_GPIO_Init();
+void Beep_OnOff(bool on);
+extern bool beep_status;
 
 #endif /* _BUZZER_H */

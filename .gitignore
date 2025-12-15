@@ -22,15 +22,15 @@
 # Precompiled Headers
 *.gch
 *.pch
-*.ioc
+
 # Libraries
 *.lib
 *.a
 *.la
 *.lo
-*.uvoptx
 *.json
 *.lock
+
 # Shared objects (inc. Windows DLLs)
 *.dll
 *.so
@@ -45,7 +45,7 @@
 *.x86_64
 *.hex
 *.s
-*.hex
+
 # Debug files
 *.dSYM/
 *.su
@@ -53,7 +53,6 @@
 *.pdb
 *.log
 *.dis
-*.uvprojx
 
 # Kernel Module Compile Results
 *.mod*
@@ -64,21 +63,17 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-#GCC & vscode
+# GCC & vscode
 /.vscode
 /build
 /Middlewares
 /Drivers
 
-
 # Keil Clean
 *.rar
-*.o
-*.d
 *.crf
 *.htm
 *.dep
-*.map
 *.bak
 *.lnp
 *.lst
@@ -90,16 +85,11 @@ dkms.conf
 *.dbg*
 *.uvguix.*
 .mxproject
- 
+
 RTE/
 Templates/
 Examples/
- 
 
-#JLINK file
+# JLINK file
 JLinkLog.txt
 *.dbgconf
-
-
-
-

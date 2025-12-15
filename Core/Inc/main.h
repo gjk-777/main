@@ -63,6 +63,10 @@ void Error_Handler(void);
 #define Body_PA1_GPIO_Port GPIOA
 #define Fire_Pin GPIO_PIN_4
 #define Fire_GPIO_Port GPIOA
+#define Key1_Pin GPIO_PIN_10
+#define Key1_GPIO_Port GPIOB
+#define Key2_Pin GPIO_PIN_11
+#define Key2_GPIO_Port GPIOB
 #define DHT11_PA11_Pin GPIO_PIN_11
 #define DHT11_PA11_GPIO_Port GPIOA
 #define w25q64_cs_Pin GPIO_PIN_12

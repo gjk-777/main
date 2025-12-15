@@ -36,6 +36,7 @@
 // 硬件驱动
 #include "usart.h"
 #include "led.h"
+#include "buzzer.h"
 // C库
 #include <string.h>
 #include <stdio.h>
@@ -284,7 +285,8 @@ _Bool OneNet_DevLink(void)
 }
 
 uint8_t fenci;
-
+extern float adc_mq2;
+extern float adc_CO_MQ7;
 /*********************12.1注释掉了，后面要打开******************/
 unsigned char OneNet_FillBuf(char *buf)
 {
@@ -298,6 +300,12 @@ unsigned char OneNet_FillBuf(char *buf)
 	memset(text, 0, sizeof(text));
 	sprintf(text, "\"humi\":{\"value\":%d},", humi);
 	strcat(buf, text);
+	memset(text, 0, sizeof(text));
+	sprintf(text, "\"Mq2\":{\"value\":%.2f},", adc_mq2);
+	strcat(buf, text);
+	memset(text, 0, sizeof(text));
+	sprintf(text, "\"CO\":{\"value\":%.2f},", adc_CO_MQ7);
+	strcat(buf, text);
 
 	memset(text, 0, sizeof(text));
 	sprintf(text, "\"LED\":{\"value\":%s},", led_status ? "false" : "true");
@@ -305,6 +313,10 @@ unsigned char OneNet_FillBuf(char *buf)
 	memset(text, 0, sizeof(text));
 	sprintf(text, "\"Beep\":{\"value\":%s}", beep_status ? "true" : "false");
 	strcat(buf, text);
+	memset(text, 0, sizeof(text));
+	sprintf(text, ",\"Fire\":{\"value\":%s}", fire_status ? "true" : "false");
+	strcat(buf, text);
+
 	strcat(buf, "}}");
 
 	return strlen(buf);
@@ -330,7 +342,7 @@ void OneNet_SendData(void)
 
 	short body_len = 0, i = 0;
 
-		Uart_printf(USART_DEBUG, "Tips:	OneNet_SendData-MQTT\r\n");
+	// Uart_printf(USART_DEBUG, "Tips:	OneNet_SendData-MQTT\r\n");
 
 	memset(buf, 0, sizeof(buf)); // 用于初始化数组或结构体
 
@@ -344,7 +356,7 @@ void OneNet_SendData(void)
 				mqttPacket._data[mqttPacket._len++] = buf[i];
 
 			ESP8266_SendData(mqttPacket._data, mqttPacket._len); // 上传数据到平台
-			Uart_printf(USART_DEBUG, "Send %d Bytes\r\n", mqttPacket._len);
+			// Uart_printf(USART_DEBUG, "Send %d Bytes\r\n", mqttPacket._len);
 
 			MQTT_DeleteBuffer(&mqttPacket); // 删包
 		}
@@ -382,18 +394,12 @@ void OneNET_Publish(const char *topic, const char *msg)
 
 //==========================================================
 //	函数名称：	OneNET_Subscribe
-//
 //	函数功能：	订阅
-//
 //	入口参数：	无
-//
 //	返回参数：	无
-//
-//	说明：
 //==========================================================
 void OneNET_Subscribe(void)
 {
-
 	MQTT_PACKET_STRUCTURE mqtt_packet = {NULL, 0, 0, 0}; // 协议包
 
 	char topic_buf[56];
@@ -461,7 +467,7 @@ void OneNet_RevPro(unsigned char *cmd)
 	static unsigned short pkt_id = 0;
 	unsigned char type = 0;
 	short result = 0;
-	//cJSON *raw_json, *params_json, *led_json, *Beep_json;
+	// cJSON *raw_json, *params_json, *led_json, *Beep_json;
 	type = MQTT_UnPacketRecv(cmd);
 	switch (type)
 	{
@@ -471,24 +477,23 @@ void OneNet_RevPro(unsigned char *cmd)
 		{
 			Uart_printf(USART_DEBUG, "----------------------------------------------");
 			Uart_printf(USART_DEBUG, "topic: %s, topic_len: %d, payload: %s, payload_len: %d\r\n", cmdid_topic, topic_len, req_payload, req_len);
-			//raw_json = cJSON_Parse(req_payload);				   // 解析JSON字符串
-			//params_json = cJSON_GetObjectItem(raw_json, "params"); // 提取整个数组
-			//led_json = cJSON_GetObjectItem(params_json, "LED");	   /// 提取对应属性
-			//Beep_json = cJSON_GetObjectItem(params_json, "Beep");  /// 提取对应属性
-			// if (Beep_json != NULL)
-			// {
-			// 	if (Beep_json->type == cJSON_True)
-			// 	{
-			// 		Uart_printf(USART_DEBUG, "Beep ON\r\n");
-			// 		Bsp_LedON();
-			// 	}
-			// 	else
-			// 	{
-			// 		Uart_printf(USART_DEBUG, "Beep OFF\r\n");
-			// 		Bsp_LedOFF();
-			// 	}
-			// }
-
+			// raw_json = cJSON_Parse(req_payload);				   // 解析JSON字符串
+			// params_json = cJSON_GetObjectItem(raw_json, "params"); // 提取整个数组
+			// led_json = cJSON_GetObjectItem(params_json, "LED");	   /// 提取对应属性
+			// Beep_json = cJSON_GetObjectItem(params_json, "Beep");  /// 提取对应属性
+			//  if (Beep_json != NULL)
+			//  {
+			//  	if (Beep_json->type == cJSON_True)
+			//  	{
+			//  		Uart_printf(USART_DEBUG, "Beep ON\r\n");
+			//  		Bsp_LedON();
+			//  	}
+			//  	else
+			//  	{
+			//  		Uart_printf(USART_DEBUG, "Beep OFF\r\n");
+			//  		Bsp_LedOFF();
+			//  	}
+			//  }
 		}
 		break;
 	case MQTT_PKT_PUBACK: // 发送Publish消息，平台回复的Ack

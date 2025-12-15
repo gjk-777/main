@@ -15,6 +15,10 @@
 #include "esp8266.h"
 #include "onenet.h"
 #include "adc.h"
+#include "w25q64.h"
+#include "m24c02.h"
+#include "queue.h"  //队列
+#include "timers.h" //软件定时器
 #define ESP8266_ONENET_INFO "AT+CIPSTART=\"TCP\",\"mqtts.heclouds.com\",1883\r\n"
 
 static uint8_t Body_val;
@@ -23,6 +27,11 @@ extern uint8_t Uart1RxBuffer[256];
 extern uint8_t chuan;
 uint8_t humi = 0;
 uint8_t temp = 0;
+
+float ppm = 0;
+uint8_t count = 0;
+float adc_mq2 = 0;
+float adc_CO_MQ7 = 0;
 bool fire_value;
 unsigned char *dataPtr = NULL;
 extern DMA_HandleTypeDef hdma_usart1_rx;
@@ -31,6 +40,7 @@ TaskHandle_t xHomeTaskHandle;
 TaskHandle_t xEspLinkTaskHandle;
 TaskHandle_t xSendMsgHandle_t;
 TaskHandle_t xRecvMsgHandle_t;
+TaskHandle_t xSensorTaskHandle;
 
 void check_memory()
 {
@@ -75,19 +85,18 @@ void My_Led_Task(void *pvParameters)
     while (1)
     {
 
-        // check_memory();
+        check_memory();
         Bsp_LedToggle();
         // printf("led亮\r\n");
         //  PassiveBuzzer_Test();
-        vTaskDelay(1000);
+        Beep_OnOff(0);
+        vTaskDelay(2000);
     }
 }
+
 void Home_Task(void *pvParameters)
 {
-    float ppm = 0;
-    uint8_t count = 0;
-    float adc_mq2 = 0;
-    float adc_CO_MQ7 = 0;
+
     while (1)
     {
         OLED_Clear();
@@ -100,20 +109,7 @@ void Home_Task(void *pvParameters)
         }
         Data_Show(&temp, &humi);
         // Name_Show();
-        Body_val = HAL_GPIO_ReadPin(Body_PA1_GPIO_Port, Body_PA1_Pin);
-        fire_value = Get_Fire();
-        if (fire_value == 0) // 低电平有效
-        {
-            printf("火\r\n");
-        }
-        else
-        {
-            printf("无火\r\r");
-        }
-        adc_mq2 = MQ2_GetPPM(); // ADC采集程序
-        printf("mq浓度 ：%.2fppm\r\n", adc_mq2);
-        adc_CO_MQ7 = CO_MQ7_GetPPM();
-        printf("CO浓度 ：%.2fppm\r\n", adc_CO_MQ7);
+
         OLED_Update();
         vTaskDelay(500);
     }
@@ -121,8 +117,11 @@ void Home_Task(void *pvParameters)
 
 void EspLink_Task(void *pvParameters)
 {
+    // M24C02_Test();
+    // PassiveBuzzer_Test();
+    /** */
     printf("tasktask\r\n");
-    uint8_t i = 0;
+    uint8_t k = 0;
     ESP8266_Init(); // 初始化ESP8266
     HAL_Delay(100);
     Uart_printf(USART_DEBUG, "Connect MQTTs Server...\r\n");
@@ -131,7 +130,7 @@ void EspLink_Task(void *pvParameters)
     Uart_printf(USART_DEBUG, "Connect MQTT Server Success--OKOKOKOK\r\n");
     while (OneNet_DevLink()) // 接入OneNET
     {
-        if (i++ == 4)
+        if (k++ == 4)
             HAL_NVIC_SystemReset();
         HAL_Delay(500);
     }
@@ -145,7 +144,7 @@ void Net_SendMsg_T(void *pvParameters)
     {
         OneNet_SendData(); // 发送数据
         ESP8266_Clear1_2();
-        vTaskDelay(1000);
+        vTaskDelay(200);
     }
 }
 void Net_RecvMsg_T(void *pvParameters)
@@ -161,10 +160,33 @@ void Net_RecvMsg_T(void *pvParameters)
         vTaskDelay(50);
     }
 }
+void Sensor_Task(void *pvParameters)
+{
+    for (;;)
+    {
+        adc_mq2 = MQ2_GetPPM(); // ADC采集程序
+        adc_CO_MQ7 = CO_MQ7_GetPPM();
+        if (adc_mq2 > 100.0f)
+        {
+            printf("mq2浓度异常：%.2fppm\r\n", adc_mq2);
+            Beep_OnOff(1);
+        }
+        if (adc_CO_MQ7 > 100.0f)
+        {
+            printf("CO浓度异常：%.2fppm\r\n", adc_CO_MQ7);
+            Beep_OnOff(1);
+        }
+        printf("CO浓度 ：%.2fppm\r\n", adc_CO_MQ7);
+        printf("mq浓度 ：%.2fppm\r\n", adc_mq2);
+        Get_Fire_State();
+        Body_State();
+        vTaskDelay(1000);
+    }
+}
 
 void My_Task_Init(void)
 {
-    xTaskCreate(EspLink_Task, "EspLink_Task", 750, NULL, 12, &xEspLinkTaskHandle);
+    xTaskCreate(EspLink_Task, "EspLink_Task", 750, NULL, 15, &xEspLinkTaskHandle);
     if (xEspLinkTaskHandle == NULL)
         printf("EspLink_Task create failed\r\n");
     xTaskCreate(My_Led_Task, "My_Led_Task", 128, NULL, 10, &xLedTaskHandle);
@@ -179,18 +201,23 @@ void My_Task_Init(void)
     xTaskCreate(Net_RecvMsg_T, "RecvMsg_Task", 512, NULL, 11, &xRecvMsgHandle_t);
     if (xRecvMsgHandle_t == NULL)
         printf("RecvMsg_Task create failed\r\n");
+    xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
+    if (xSensorTaskHandle == NULL)
+        printf("Sensor_Task create failed\r\n");
 }
 
 void My_Drivers_Init(void)
 {
     HAL_TIM_Base_Start_IT(&htim2);
+    //  HAL_TIM_Base_Start(&htim1);
     HAL_UART_Receive_IT(&huart2, &chuan, 1);
     /* 需要在初始化时调用一次否则无法接收到内容 */
     HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Uart1RxBuffer, BUF_SIZE);
-    PassiveBuzzer_Init();
+    // PassiveBuzzer_Init();
+    Beep_GPIO_Init();
     OLED_Init();
     OLED_Clear();
     HAL_ADC_Start(&hadc1);
-    HAL_ADC_Start(&hadc1);
+    HAL_ADC_Start(&hadc2);
     My_Task_Init();
 }
