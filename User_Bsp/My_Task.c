@@ -220,4 +220,5 @@ void My_Drivers_Init(void)
     HAL_ADC_Start(&hadc1);
     HAL_ADC_Start(&hadc2);
     My_Task_Init();
+    // 测试git
 }
