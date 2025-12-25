@@ -212,9 +212,9 @@ void ESP8266_SendData(unsigned char *data, unsigned short len)
  * @param len 长度
  * @note 	此函数是通过AT指令将数据发送到onenet平台上的
  */
+static char cmdBuf[32];
 void ESP8266_SendData2(unsigned char *data, unsigned short len)
 {
-	char cmdBuf[32];
 	ESP8266_Clear1_2();						   // 清空接收缓存
 	sprintf(cmdBuf, "AT+CIPSEND=%d\r\n", len); // 发送命令
 	if (!ESP8266_SendCmd2(cmdBuf, ">"))		   // 收到‘>’时可以发送数据

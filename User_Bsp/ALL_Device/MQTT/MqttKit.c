@@ -206,20 +206,18 @@ int32 MQTT_ReadLength(const uint8 *stream, int32 size, uint32 *len)
 //
 //	说明：
 //==========================================================
+static uint8 status = 255;
+
+static uint32 remain_len = 0;
 uint8 MQTT_UnPacketRecv(uint8 *dataPtr)
 {
-
-	uint8 status = 255;
-	uint8 type = dataPtr[0] >> 4; // 类型检查
-
+	 uint8 type = dataPtr[0] >> 4; // 类型检查
 	if (type < 1 || type > 14)
 		return status;
 
 	if (type == MQTT_PKT_PUBLISH)
 	{
 		uint8 *msgPtr;
-		uint32 remain_len = 0;
-
 		msgPtr = dataPtr + MQTT_ReadLength(dataPtr + 1, 4, &remain_len) + 1;
 
 		if (remain_len < 2 || dataPtr[0] & 0x01) // retain

@@ -14,4 +14,6 @@ void Led_Set(_Bool status);
 void Get_Fire_State(void);
 void Body_State(void);
 
+void ButtonHandler(void);
+
 #endif

@@ -169,16 +169,15 @@ static unsigned char OTA_UrlEncode(char *sign)
 ************************************************************
 */
 #define METHOD "sha1"
+static char sign_buf[64];			  // 保存签名的Base64编码结果 和 URL编码结果
+static char hmac_sha1_buf[64];		  // 保存签名
+static char access_key_base64[64];	  // 保存access_key的Base64编码结合
+static char string_for_signature[72]; // 保存string_for_signature，这个是加密的key
 static unsigned char OneNET_Authorization(char *ver, char *res, unsigned int et, char *access_key, char *dev_name,
 										  char *authorization_buf, unsigned short authorization_buf_len, _Bool flag)
 {
 
 	size_t olen = 0;
-
-	char sign_buf[64];			   // 保存签名的Base64编码结果 和 URL编码结果
-	char hmac_sha1_buf[64];		   // 保存签名
-	char access_key_base64[64];	   // 保存access_key的Base64编码结合
-	char string_for_signature[72]; // 保存string_for_signature，这个是加密的key
 
 	//----------------------------------------------------参数合法性--------------------------------------------------------------------
 	if (ver == (void *)0 || res == (void *)0 || et < 1564562581 || access_key == (void *)0 || authorization_buf == (void *)0 || authorization_buf_len < 120)
@@ -224,13 +223,12 @@ static unsigned char OneNET_Authorization(char *ver, char *res, unsigned int et,
 
 	return 0;
 }
-
+static MQTT_PACKET_STRUCTURE mqttPacket = {NULL, 0, 0, 0}; // 协议包
+static unsigned char *dataPtr;
+static char authorization_buf[160];
+static _Bool status = 1;
 _Bool OneNet_DevLink(void)
 {
-	MQTT_PACKET_STRUCTURE mqttPacket = {NULL, 0, 0, 0}; // 协议包
-	unsigned char *dataPtr;
-	char authorization_buf[160];
-	_Bool status = 1;
 	OneNET_Authorization("2018-10-31", PROID, 1956499200, ACCESS_KEY, DEVICE_NAME,
 						 authorization_buf, sizeof(authorization_buf), 0);
 	// 函数的参数包括日期、产品 ID（PROID）、一个时间戳、访问密钥（ACCESS_KEY）、
@@ -398,11 +396,11 @@ void OneNET_Publish(const char *topic, const char *msg)
 //	入口参数：	无
 //	返回参数：	无
 //==========================================================
+static char topic_buf[56];
 void OneNET_Subscribe(void)
 {
 	MQTT_PACKET_STRUCTURE mqtt_packet = {NULL, 0, 0, 0}; // 协议包
 
-	char topic_buf[56];
 	const char *topic = topic_buf;
 
 	snprintf(topic_buf, sizeof(topic_buf), "$sys/%s/%s/thing/property/set", PROID, DEVICE_NAME);

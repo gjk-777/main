@@ -50,9 +50,9 @@
 /* Definitions for All_TaskInit */
 osThreadId_t All_TaskInitHandle;
 const osThreadAttr_t All_TaskInit_attributes = {
-  .name = "All_TaskInit",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+    .name = "All_TaskInit",
+    .stack_size = 256 * 4,
+    .priority = (osPriority_t)osPriorityNormal,
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -86,18 +86,19 @@ void vApplicationIdleHook(void)
 /* USER CODE BEGIN 4 */
 void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
 {
-   /* Run time stack overflow checking is performed if
-   configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2. This hook function is
-   called if a stack overflow is detected. */
+  /* Run time stack overflow checking is performed if
+  configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2. This hook function is
+  called if a stack overflow is detected. */
 }
 /* USER CODE END 4 */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
-void MX_FREERTOS_Init(void) {
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
+void MX_FREERTOS_Init(void)
+{
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
@@ -129,7 +130,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
-
 }
 
 /* USER CODE BEGIN Header_Start_TaskInit */
@@ -142,10 +142,11 @@ void MX_FREERTOS_Init(void) {
 void Start_TaskInit(void *argument)
 {
   /* USER CODE BEGIN Start_TaskInit */
-	
-	My_Drivers_Init();
+
+  My_Drivers_Init();
   // 删除此任务
   vTaskDelete(NULL);
+  vTaskDelay(portMAX_DELAY);
   /* Infinite loop */
   for (;;)
   {
@@ -157,4 +158,3 @@ void Start_TaskInit(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
-
