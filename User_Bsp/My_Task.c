@@ -89,10 +89,11 @@ void My_Led_Task(void *pvParameters)
         printf("/********************实验结束**********************/\r\n");
 
         check_memory();
-        // Bsp_LedToggle();
-        //  printf("led亮\r\n");
-        //   PassiveBuzzer_Test();
-        //  Beep_OnOff(0);
+        //         Bsp_LedToggle();
+        //			        vTaskDelay(1000);
+        //        //  printf("led亮\r\n");
+        //        //   PassiveBuzzer_Test();
+        //         Beep_OnOff(0);
         vTaskDelay(3000);
     }
 }

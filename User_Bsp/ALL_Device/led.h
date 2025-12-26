@@ -16,4 +16,9 @@ void Body_State(void);
 
 void ButtonHandler(void);
 
+// 初始化LED管理器示例
+void LED_Manager_Init(void);
+// 使用LED管理器控制LED示例
+void LED_Manager_Usage(void);
+
 #endif

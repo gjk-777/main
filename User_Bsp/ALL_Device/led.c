@@ -1,5 +1,7 @@
 #include "led.h"
 #include "main.h"
+#include "led_manager.h"
+
 bool led_status = false;
 bool fire_status = false;
 bool body_status = false;

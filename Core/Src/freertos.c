@@ -100,7 +100,7 @@ void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
 void MX_FREERTOS_Init(void)
 {
   /* USER CODE BEGIN Init */
-
+  My_Drivers_Init();
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -143,8 +143,8 @@ void Start_TaskInit(void *argument)
 {
   /* USER CODE BEGIN Start_TaskInit */
 
-  My_Drivers_Init();
-  // 删除此任务
+  // My_Drivers_Init();
+  //  删除此任务
   vTaskDelete(NULL);
   vTaskDelay(portMAX_DELAY);
   /* Infinite loop */
