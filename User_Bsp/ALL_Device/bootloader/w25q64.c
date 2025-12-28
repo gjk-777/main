@@ -98,126 +98,31 @@ void W25Q64_Read(uint8_t *rbuff, uint32_t addr, uint32_t datalen)
 	CS_DISENABLE;			   // 关闭CS
 }
 
-///*-------------------------------------------------*/
-///*函数名：擦除FLASH                                */
-///*参  数：start_addr：擦除起始扇区   num：擦几个扇区*/
-///*返回值：无                                       */
-///*-------------------------------------------------*/
-//void stm32_Erase_System_flash(uint32_t start_addr, uint16_t num)
+
+///***************************************************************************** */
+//uint8_t wdata[256];
+//uint8_t Rdata[256];
+//void w25q64_test(void)
 //{
-//	HAL_StatusTypeDef status;
-//	FLASH_EraseInitTypeDef eraseInit;
-//	uint32_t sectorError = 0;
-
-//	// 先解锁FLASH
-//	HAL_FLASH_Unlock();
-
-//	// 配置擦除参数
-//	eraseInit.TypeErase = FLASH_TYPEERASE_SECTORS;	// 扇区擦除类型
-//	eraseInit.VoltageRange = FLASH_VOLTAGE_RANGE_3; // 电压范围：2.7V-3.6V
-//	eraseInit.Sector = start_addr;					// 起始扇区
-//	eraseInit.NbSectors = num;						// 要擦除的扇区数量
-
-//	// 执行扇区擦除
-//	status = HAL_FLASHEx_Erase(&eraseInit, &sectorError);
-
-//	// 锁定FLASH
-//	HAL_FLASH_Lock();
-
-//	// 错误处理（可选）
-//	if (status != HAL_OK)
+//	W25Q64_Erase64K(0);
+//	HAL_Delay(50);
+//	uint16_t i, j;
+//	for (i = 0; i < 256; i++)
 //	{
-//		// 擦除失败，可根据需要添加错误处理代码
-//		// sectorError变量包含擦除失败的扇区编号
-//	}
-//}
-/*---------------------------------------------------------------------*/
-/*函数名：写入FLASH                                                    */
-/*参  数：saddr：写入地址 wdata：写入数据指针  wnum：写入多少个字节    */
-/*返回值：无                                                           */
-/*---------------------------------------------------------------------*/
-//void stm32_System_WriteFlash(uint32_t saddr, uint32_t *wdata, uint32_t wnum)
-//{
-//	HAL_StatusTypeDef status;
-
-//	// 解锁FLASH
-//	HAL_FLASH_Unlock();
-
-//	// 循环写入数据，每次写入一个字（4字节）
-//	while (wnum >= 4)
-//	{
-//		// 使用HAL库的FLASH写入函数，写入一个字
-//		status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, saddr, *wdata);
-//		if (status != HAL_OK)
+//		for (j = 0; j < 256; j++)
 //		{
-//			// 写入失败，可根据需要添加错误处理代码
-//			break;
+//			wdata[j] = i;
 //		}
-
-//		wnum -= 4;	// 剩余字节数减4
-//		saddr += 4; // 写入地址增加4
-//		wdata++;	// 数据指针指向下一个字
+//		W25Q64_PageWrite(wdata, i);
 //	}
-
-//	// 处理剩余不足4字节的数据
-//	if (wnum > 0)
+//	HAL_Delay(50);
+//	for (i = 0; i < 256; i++)
 //	{
-//		// 读取当前地址的数据
-//		uint32_t currentData = *(__IO uint32_t *)saddr;
-//		uint32_t newData = currentData;
-//		uint32_t byteOffset = 0;
-
-//		// 逐个字节更新
-//		while (wnum > 0)
+//		W25Q64_Read(Rdata, i * 256, 256);
+//		for (j = 0; j < 256; j++)
 //		{
-//			newData &= ~(0xFF << (byteOffset * 8));
-//			newData |= ((uint32_t)(*wdata) << (byteOffset * 8)) & (0xFF << (byteOffset * 8));
-
-//			byteOffset++;
-//			wnum--;
-
-//			// 如果已经处理了一个完整的字，或者是最后一个字节
-//			if (byteOffset == 4 || wnum == 0)
-//			{
-//				// 写入更新后的数据
-//				status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, saddr, newData);
-//				if (status != HAL_OK)
-//				{
-//					// 写入失败，可根据需要添加错误处理代码
-//				}
-//				break;
-//			}
+//			printf("地址%d = %x\r\n", i * 256 + j, Rdata[j]);
 //		}
 //	}
 
-//	// 锁定FLASH
-//	HAL_FLASH_Lock();
 //}
-
-/***************************************************************************** */
-uint8_t wdata[256];
-uint8_t Rdata[256];
-void w25q64_test(void)
-{
-	W25Q64_Erase64K(0);
-	HAL_Delay(50);
-	uint16_t i, j;
-	for (i = 0; i < 256; i++)
-	{
-		for (j = 0; j < 256; j++)
-		{
-			wdata[j] = i;
-		}
-		W25Q64_PageWrite(wdata, i);
-	}
-	HAL_Delay(50);
-	for (i = 0; i < 256; i++)
-	{
-		W25Q64_Read(Rdata, i * 256, 256);
-		for (j = 0; j < 256; j++)
-		{
-			printf("地址%d = %x\r\n", i * 256 + j, Rdata[j]);
-		}
-	}
-
-}
