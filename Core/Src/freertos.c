@@ -50,9 +50,9 @@
 /* Definitions for All_TaskInit */
 osThreadId_t All_TaskInitHandle;
 const osThreadAttr_t All_TaskInit_attributes = {
-    .name = "All_TaskInit",
-    .stack_size = 128 * 4,
-    .priority = (osPriority_t)osPriorityNormal,
+  .name = "All_TaskInit",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -93,12 +93,11 @@ void vApplicationStackOverflowHook(xTaskHandle xTask, signed char *pcTaskName)
 /* USER CODE END 4 */
 
 /**
- * @brief  FreeRTOS initialization
- * @param  None
- * @retval None
- */
-void MX_FREERTOS_Init(void)
-{
+  * @brief  FreeRTOS initialization
+  * @param  None
+  * @retval None
+  */
+void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
   My_Drivers_Init();
   /* USER CODE END Init */
@@ -130,6 +129,7 @@ void MX_FREERTOS_Init(void)
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
   /* USER CODE END RTOS_EVENTS */
+
 }
 
 /* USER CODE BEGIN Header_Start_TaskInit */
@@ -158,3 +158,4 @@ void Start_TaskInit(void *argument)
 /* USER CODE BEGIN Application */
 
 /* USER CODE END Application */
+

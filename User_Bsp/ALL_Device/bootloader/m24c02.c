@@ -4,6 +4,7 @@
 #include "string.h"
 #include "delay.h"
 
+#include "use_boot_flash.h"
 /* -------------------------------------------------------------------------------------------- */
 /* ↓↓↓  I2C驱动函数************************/
 /* ---------------------------------------------------------------------------------- */
@@ -141,7 +142,7 @@ uint8_t M24C02_WriteByte(uint8_t addr, uint8_t wdata)
 	return 0;	  // 正确，返回0
 }
 /*-------------------------------------------------*/
-/*函数名：24C02写入一页（16字节）数据              */
+/*函数名：24C02写入一页（8字节）数据              */
 /*参  数：addr：地址  wdata：需要写入的数据指针    */
 /*返回值：0：正确 其他：错误                       */
 /*-------------------------------------------------*/
@@ -157,8 +158,8 @@ uint8_t M24C02_WritePage(uint8_t addr, uint8_t *wdata)
 	IIC_Send_Byte(addr); // 发送内部存储空间地址
 	if (IIC_Wait_Ack(100) != 0)
 		return 2; // 等待应答，错误的话，返回2
-	for (i = 0; i < 16; i++)
-	{							 // 循环16次写入一页
+	for (i = 0; i < 8; i++)
+	{							 // 循环8次写入一页（AT24C02页大小为8字节）
 		IIC_Send_Byte(wdata[i]); // 发送数据
 		if (IIC_Wait_Ack(100) != 0)
 			return 3 + i; // 等待应答，错误的话，返回3+i
@@ -195,60 +196,60 @@ uint8_t M24C02_ReadData(uint8_t addr, uint8_t *rdata, uint16_t datalen)
 	IIC_Stop();							   // 发送停止信号
 	return 0;							   // 正确，返回0
 }
-/*-------------------------------------------------*/
-/*函数名：读取24C02结构体到OTA_Info结构体缓冲区    */
-/*参  数：无                                       */
-/*返回值：无                                       */
-/*-------------------------------------------------*/
-// void M24C02_ReadOTAInfo(void)
+///*-------------------------------------------------*/
+///*函数名：读取24C02结构体到OTA_Info结构体缓冲区    */
+///*参  数：无                                       */
+///*返回值：无                                       */
+///*-------------------------------------------------*/
+//void M24C02_ReadOTAInfo(void)
 //{
 //	memset(&OTA_Info, 0, OTA_INFOCB_SIZE);					   // 清空OTA_Info结构体缓冲区
 //	M24C02_ReadData(0, (uint8_t *)&OTA_Info, OTA_INFOCB_SIZE); // 从24C02读取数据，存放到OTA_Info结构体
-// }
+//}
 ///*-------------------------------------------------*/
 ///*函数名：把OTA_Info结构体缓冲区数据保存到24C02    */
 ///*参  数：无                                       */
 ///*返回值：无                                       */
 ///*-------------------------------------------------*/
-// void M24C02_WriteOTAInfo(void)
+//void M24C02_WriteOTAInfo(void)
 //{
 //	uint8_t i;	   // 用于for循环
 //	uint8_t *wptr; // uint8_t类型指针
 
 //	wptr = (uint8_t *)&OTA_Info; // wptr指向OTA_Info结构体首地址
-//	for (i = 0; i < OTA_INFOCB_SIZE / 16; i++)
-//	{											 // 每次写入一页16个字节
-//		M24C02_WritePage(i * 16, wptr + i * 16); // 写入一页数据
-//		mdelay(5);								 // 延时
+//	for (i = 0; i < OTA_INFOCB_SIZE / 8; i++)
+//	{										   // 每次写入一页8个字节（AT24C02页大小为8字节）
+//		M24C02_WritePage(i * 8, wptr + i * 8); // 写入一页数据
+//		mdelay(5);							   // 延时
 //	}
 //}
 
-uint8_t rbuff[256];
+//uint8_t rbuff[256];
 
-#define Page_16 1
-// #define Byte_1
-//  uint8_t wbuff[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-uint8_t wbuff[16] = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
+//#define Page_8 1 // AT24C02页大小为8字节
+//				 // #define Byte_1
+//				 // uint8_t wbuff[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+//uint8_t wbuff[16] = {15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0};
 
-void M24C02_Test(void)
-{
-#ifdef Byte_1
-	for (uint16_t i = 0; i < 256; i++)
-	{
-		M24C02_WriteByte(i, i);
-		mdelay(5);
-	}
-#endif // Byte_1
-#ifdef Page_16
-	for (uint16_t i = 0; i < 16; i++)
-	{
-		M24C02_WritePage(i * 16, wbuff);
-		mdelay(10);
-	}
-#endif
-	M24C02_ReadData(0, rbuff, 256);
-	for (uint16_t i = 0; i < 256; i++)
-	{
-		printf("地址：%d= %x\r\n", i, rbuff[i]);
-	}
-}
+//void M24C02_Test(void)
+//{
+//#ifdef Byte_1
+//	for (uint16_t i = 0; i < 256; i++)
+//	{
+//		M24C02_WriteByte(i, 255 - i);
+//		mdelay(5);
+//	}
+//#endif								  // Byte_1
+//#ifdef Page_8						  // 使用页大小为8字节的宏定义
+//	for (uint16_t i = 0; i < 32; i++) // AT24C02共256字节 = 32页 × 8字节/页
+//	{
+//		M24C02_WritePage(i * 8, wbuff); // 每页8字节，页地址递增8
+//		mdelay(10);
+//	}
+//#endif
+//	M24C02_ReadData(0, rbuff, 256);
+//	for (uint16_t i = 0; i < 256; i++)
+//	{
+//		printf("地址：%d= %x\r\n", i, rbuff[i]);
+//	}
+//}

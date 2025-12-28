@@ -127,8 +127,6 @@ void EspLink_Task(void *pvParameters)
     // PassiveBuzzer_Test();
     /** */
     printf("tasktask\r\n");
-    /*联网灯光*/
-    LedManager_SetLed_PulseS(0, 10, 5, 10);
 
     ESP8266_Init(); // 初始化ESP8266
     HAL_Delay(100);
@@ -205,7 +203,7 @@ void Key_Get_Task(void *pvParameters)
     {
         // 为了原子性操作，不被其他任务干扰
         // taskENTER_CRITICAL();
-        ButtonHandler();
+        // ButtonHandler();
         // taskEXIT_CRITICAL();
         vTaskDelay(100);
     }
@@ -245,7 +243,8 @@ void My_Drivers_Init(void)
 {
 
     LED_Manager_Init();
-    LED_Manager_Usage();
+    /*联网灯光*/
+    LedManager_SetLed_PulseS(0, 10, 5, 10);
 
     HAL_TIM_Base_Start_IT(&htim2);
     //  HAL_TIM_Base_Start(&htim1);
@@ -259,7 +258,7 @@ void My_Drivers_Init(void)
     HAL_ADC_Start(&hadc1);
     HAL_ADC_Start(&hadc2);
 
-    My_Task_Init();
-    Task_Tracker_Init(5000);
+     My_Task_Init();
+    Task_Tracker_Init(30 * 1000);
     //  测试git
 }

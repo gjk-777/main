@@ -121,35 +121,35 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
 
 /* USER CODE BEGIN 1 */
 /*-------------------------------------------------*/
-/*��������SPI�շ�һ���ֽ�                          */
-/*��  ����txd��Ҫ���͵�����                        */
-/*����ֵ�����յ�������                             */
+/*函数名：SPI读写一个字节                           */
+/*参  数：txd：需要发送的数据                       */
+/*返回值：接收到的数据                             */
 /*-------------------------------------------------*/
 uint8_t SPI0_ReadWriteByte(uint8_t txd)
 {
   uint8_t rxdata;
   HAL_SPI_TransmitReceive(&hspi1, &txd, &rxdata, 1, 1000);
-  return rxdata; /* �����յ������� */
+  return rxdata; /* 返回接收到的数据 */
 }
 /*-------------------------------------------------*/
-/*��������SPI������                                */
-/*��  ����wdata����������ָ��  datalen�����ͳ���   */
-/*����ֵ����                                       */
+/*函数名：SPI数据写入                               */
+/*参  数：wdata：要写入的数据指针  datalen：发送长度 */
+/*返回值：无                                       */
 /*-------------------------------------------------*/
 void SPI0_Write(uint8_t *wdata, uint16_t datalen)
 {
-  // ʹ��HAL���������ͺ������ѭ�������Ч��
+  // 使用HAL库函数直接发送，比使用循环发送更高效
   HAL_SPI_Transmit(&hspi1, wdata, datalen, HAL_MAX_DELAY);
 }
 /*-------------------------------------------------*/
-/*��������SPI��������                              */
-/*��  ����rdata�����ջ�����  datalen�����ճ���     */
-/*����ֵ����                                       */
+/*函数名：SPI数据读取                               */
+/*参  数：rdata：接收数据指针  datalen：接收长度     */
+/*返回值：无                                       */
 /*-------------------------------------------------*/
 void SPI0_Read(uint8_t *rdata, uint16_t datalen)
 {
-  // ʹ��HAL���������պ������ѭ�������Ч��
-  // SPI��ȫ˫��Э�飬HAL_SPI_Receive�ڲ����Զ�����dummy����(0x00)
+  // 使用HAL库函数直接接收，比使用循环接收更高效
+  // SPI是全双工协议，HAL_SPI_Receive内部会自动发送dummy数据(0x00)
   HAL_SPI_Receive(&hspi1, rdata, datalen, HAL_MAX_DELAY);
 }
 

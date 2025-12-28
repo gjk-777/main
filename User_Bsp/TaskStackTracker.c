@@ -73,7 +73,7 @@ void vgCheckTaskStack(void)
     // 遍历每个任务
     for (x = 0; x < uxArraySize && x < ESTIMATE_TASK_COUNT; x++)
     {
-      uxHighWaterMark = uxTaskGetStackHighWaterMark2(pxTaskStatusArray[x].xHandle);
+      uxHighWaterMark = uxTaskGetStackHighWaterMark(pxTaskStatusArray[x].xHandle);
 
       // 计算任务的堆栈大小
       uxStackSize = ((uint32_t)pxTaskStatusArray[x].xHandle - (uint32_t)pxTaskStatusArray[x].pxStackBase - 16) / 4;

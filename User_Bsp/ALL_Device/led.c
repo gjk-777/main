@@ -139,108 +139,108 @@ volatile uint32_t debounceTime = 0;
 volatile bool isLongPress = false; // 标记是否发生了长按
 volatile uint8_t clickCount = 0;   // 点击计数
 
-void ButtonHandler(void)
-{
-    uint8_t curKeyState = HAL_GPIO_ReadPin(Key1_GPIO_Port, Key1_Pin);
-    uint32_t currentTime = xTaskGetTickCount();
+//void ButtonHandler(void)
+//{
+//    uint8_t curKeyState = HAL_GPIO_ReadPin(Key1_GPIO_Port, Key1_Pin);
+//    uint32_t currentTime = xTaskGetTickCount();
 
-    switch (buttonState)
-    {
-    case BUTTON_IDLE:
-        // 初始状态，等待按键按下
-        isLongPress = false;
-        clickCount = 0;
-        if (curKeyState == GPIO_PIN_RESET) // 按键按下（低电平有效）
-        {
-            debounceTime = currentTime;
-            buttonState = BUTTON_DEBOUNCE_PRESS;
-        }
-        break;
+//    switch (buttonState)
+//    {
+//    case BUTTON_IDLE:
+//        // 初始状态，等待按键按下
+//        isLongPress = false;
+//        clickCount = 0;
+//        if (curKeyState == GPIO_PIN_RESET) // 按键按下（低电平有效）
+//        {
+//            debounceTime = currentTime;
+//            buttonState = BUTTON_DEBOUNCE_PRESS;
+//        }
+//        break;
 
-    case BUTTON_DEBOUNCE_PRESS:
-        // 按下防抖
-        if (currentTime - debounceTime >= DEBOUNCE_TIME)
-        {
-            if (curKeyState == GPIO_PIN_RESET) // 确认按键按下
-            {
-                buttonPressTime = currentTime;
-                buttonState = BUTTON_PRESSED;
-            }
-            else
-            {
-                // 抖动，回到初始状态
-                buttonState = BUTTON_IDLE;
-            }
-        }
-        break;
+//    case BUTTON_DEBOUNCE_PRESS:
+//        // 按下防抖
+//        if (currentTime - debounceTime >= DEBOUNCE_TIME)
+//        {
+//            if (curKeyState == GPIO_PIN_RESET) // 确认按键按下
+//            {
+//                buttonPressTime = currentTime;
+//                buttonState = BUTTON_PRESSED;
+//            }
+//            else
+//            {
+//                // 抖动，回到初始状态
+//                buttonState = BUTTON_IDLE;
+//            }
+//        }
+//        break;
 
-    case BUTTON_PRESSED:
-        // 按键已按下，检测长按或松开
-        if (curKeyState == GPIO_PIN_SET) // 按键松开
-        {
-            debounceTime = currentTime;
-            buttonState = BUTTON_DEBOUNCE_RELEASE;
-        }
-        else if (currentTime - buttonPressTime >= LONG_PRESS_TIME)
-        {
-            // 长按事件
-            HandleLongPress();
-            isLongPress = true;
-            buttonState = BUTTON_IDLE; // 长按处理后直接回到初始状态
-        }
-        break;
+//    case BUTTON_PRESSED:
+//        // 按键已按下，检测长按或松开
+//        if (curKeyState == GPIO_PIN_SET) // 按键松开
+//        {
+//            debounceTime = currentTime;
+//            buttonState = BUTTON_DEBOUNCE_RELEASE;
+//        }
+//        else if (currentTime - buttonPressTime >= LONG_PRESS_TIME)
+//        {
+//            // 长按事件
+//            HandleLongPress();
+//            isLongPress = true;
+//            buttonState = BUTTON_IDLE; // 长按处理后直接回到初始状态
+//        }
+//        break;
 
-    case BUTTON_DEBOUNCE_RELEASE:
-        // 松开防抖
-        if (currentTime - debounceTime >= DEBOUNCE_TIME)
-        {
-            if (curKeyState == GPIO_PIN_SET) // 确认按键松开
-            {
-                buttonReleaseTime = currentTime;
+//    case BUTTON_DEBOUNCE_RELEASE:
+//        // 松开防抖
+//        if (currentTime - debounceTime >= DEBOUNCE_TIME)
+//        {
+//            if (curKeyState == GPIO_PIN_SET) // 确认按键松开
+//            {
+//                buttonReleaseTime = currentTime;
 
-                if (isLongPress)
-                {
-                    // 如果已经处理了长按事件，直接回到初始状态
-                    buttonState = BUTTON_IDLE;
-                }
-                else
-                {
-                    clickCount++;
+//                if (isLongPress)
+//                {
+//                    // 如果已经处理了长按事件，直接回到初始状态
+//                    buttonState = BUTTON_IDLE;
+//                }
+//                else
+//                {
+//                    clickCount++;
 
-                    if (clickCount == 1)
-                    {
-                        // 第一次点击，进入双击等待状态
-                        buttonState = BUTTON_WAIT_FOR_DOUBLE;
-                    }
-                    else if (clickCount == 2)
-                    {
-                        // 第二次点击，触发双击事件
-                        HandleDoubleClick();
-                        buttonState = BUTTON_IDLE;
-                    }
-                }
-            }
-            else
-            {
-                // 抖动，回到按下状态
-                buttonState = BUTTON_PRESSED;
-            }
-        }
-        break;
+//                    if (clickCount == 1)
+//                    {
+//                        // 第一次点击，进入双击等待状态
+//                        buttonState = BUTTON_WAIT_FOR_DOUBLE;
+//                    }
+//                    else if (clickCount == 2)
+//                    {
+//                        // 第二次点击，触发双击事件
+//                        HandleDoubleClick();
+//                        buttonState = BUTTON_IDLE;
+//                    }
+//                }
+//            }
+//            else
+//            {
+//                // 抖动，回到按下状态
+//                buttonState = BUTTON_PRESSED;
+//            }
+//        }
+//        break;
 
-    case BUTTON_WAIT_FOR_DOUBLE:
-        // 等待双击的时间窗口
-        if (curKeyState == GPIO_PIN_RESET) // 第二次点击按下
-        {
-            debounceTime = currentTime;
-            buttonState = BUTTON_DEBOUNCE_PRESS; // 进入第二次点击的按下防抖
-        }
-        else if (currentTime - buttonReleaseTime >= DOUBLE_CLICK_TIME)
-        {
-            // 超过双击时间间隔，触发单击事件
-            HandleSingleClick();
-            buttonState = BUTTON_IDLE;
-        }
-        break;
-    }
-}
+//    case BUTTON_WAIT_FOR_DOUBLE:
+//        // 等待双击的时间窗口
+//        if (curKeyState == GPIO_PIN_RESET) // 第二次点击按下
+//        {
+//            debounceTime = currentTime;
+//            buttonState = BUTTON_DEBOUNCE_PRESS; // 进入第二次点击的按下防抖
+//        }
+//        else if (currentTime - buttonReleaseTime >= DOUBLE_CLICK_TIME)
+//        {
+//            // 超过双击时间间隔，触发单击事件
+//            HandleSingleClick();
+//            buttonState = BUTTON_IDLE;
+//        }
+//        break;
+//    }
+//}
