@@ -455,16 +455,19 @@ char led42[17] = "\"switch1\":false";
 char she[10] = "shehumi";
 uint8_t she_num, she_zhi, she_wei = 0;
 char *zanshi = NULL;
+
+static char *req_payload = NULL;
+static char *cmdid_topic = NULL;
+static unsigned short topic_len = 0;
+static unsigned short req_len = 0;
+static unsigned char qos = 0;
+static  unsigned short pkt_id = 0;
+static unsigned char type = 0;
+static short result = 0;
+
 void OneNet_RevPro(unsigned char *cmd)
 {
-	char *req_payload = NULL;
-	char *cmdid_topic = NULL;
-	unsigned short topic_len = 0;
-	unsigned short req_len = 0;
-	unsigned char qos = 0;
-	static unsigned short pkt_id = 0;
-	unsigned char type = 0;
-	short result = 0;
+
 	// cJSON *raw_json, *params_json, *led_json, *Beep_json;
 	type = MQTT_UnPacketRecv(cmd);
 	switch (type)

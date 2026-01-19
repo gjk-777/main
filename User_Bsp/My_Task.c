@@ -6,6 +6,7 @@
 
 #include "OLED.h"
 #include "led.h"
+#include "led_manager.h"
 #include "oled_display.h"
 #include "buzzer.h"
 #include "dht11.h"
@@ -15,8 +16,7 @@
 #include "esp8266.h"
 #include "onenet.h"
 #include "adc.h"
-#include "w25q64.h"
-#include "m24c02.h"
+
 #include "queue.h"  //队列
 #include "timers.h" //软件定时器
 #include "FreeRTOSConfig.h"
@@ -46,54 +46,29 @@ TaskHandle_t xSensorTaskHandle;
 TaskHandle_t xKeyGetHandle_t;
 TimerHandle_t xTimerHandle_Key;
 
-void check_memory()
-{
-    printf("剩余堆内存: %d 字节\n", xPortGetFreeHeapSize());
-}
+TaskStatus_t xEspLink_State; // 任务状态结构体
 
 static void Name_Show()
 {
-    OLED_ShowChinese(0, 0, "郭纪凯杜明杰王鑫");
+    OLED_ShowChinese(0, 0, "连接中");
     OLED_ShowChinese(0, 16, "宇");
     OLED_ShowChinese(0, 32, "宇");
     OLED_ShowChinese(0, 48, "宇");
     OLED_ShowChinese(115, 48, "郭");
 }
-static char task_info_buf[256]; // 使用静态数组
+
 void My_Led_Task(void *pvParameters)
 {
     (void)pvParameters;
-    uint32_t i = 0;
-    uint32_t TotalRunTime = 0;
-    UBaseType_t task_num = 0;
-    TaskStatus_t *status_array = NULL;
-    TaskHandle_t task_handle = NULL;
-    TaskStatus_t *task_info = NULL;
-    eTaskState task_state = eInvalid;
-    char *task_state_str = NULL;
-    /* 函数vTaskList()的使用*/
-    printf("/*************第四步：函数vTaskList()的使用************/\r\n");
-    // task_info_buf = pvPortMalloc(256);
-    //    if (task_info_buf == NULL)
-    //    {
-    //        /* code */
-    //        printf("内存分配失败\r\n");
-    //    }
     while (1)
     {
 
-        vTaskList(task_info_buf); /* 获取所有任务的信息 */
-        printf("任务名\t\t状态\t优先级\t剩余栈\t任务序号\r\n");
-        printf("%s\r\n", task_info_buf);
-        // vPortFree(task_info_buf);
-        printf("/********************实验结束**********************/\r\n");
-
-        check_memory();
         //         Bsp_LedToggle();
         //			        vTaskDelay(1000);
         //        //  printf("led亮\r\n");
         //        //   PassiveBuzzer_Test();
         //         Beep_OnOff(0);
+
         vTaskDelay(3000);
     }
 }
@@ -105,15 +80,12 @@ void Home_Task(void *pvParameters)
     {
         OLED_Clear();
         TimeDisplay();
-        /* 每5秒更新一次温湿度数据 */
         if (count++ == 2)
         {
             count = 0;
             DHT11Senser_Read(&humi, &temp);
         }
         Data_Show(&temp, &humi);
-        // Name_Show();
-
         OLED_Update();
         vTaskDelay(500);
     }
@@ -122,23 +94,25 @@ static uint8_t k = 0;
 void EspLink_Task(void *pvParameters)
 {
     (void)pvParameters;
+    OLED_Clear();
+    ESP_link_imag();
+    OLED_Update();
 
     // M24C02_Test();
     // PassiveBuzzer_Test();
-    /** */
     printf("tasktask\r\n");
 
     ESP8266_Init(); // 初始化ESP8266
-    HAL_Delay(100);
+    vTaskDelay(100);
     Uart_printf(USART_DEBUG, "Connect MQTTs Server...\r\n");
     Connect(ESP8266_ONENET_INFO, "CONNECT");
-    HAL_Delay(50);
+    vTaskDelay(100);
     Uart_printf(USART_DEBUG, "Connect MQTT Server Success--OKOKOKOK\r\n");
     while (OneNet_DevLink()) // 接入OneNET
     {
         if (k++ == 4)
             HAL_NVIC_SystemReset();
-        HAL_Delay(500);
+        vTaskDelay(100);
     }
     OneNET_Subscribe(); // 订阅主题
     Uart_printf(USART_DEBUG, "---------------------------Subscribe，Successful\r\n");
@@ -153,9 +127,13 @@ void Net_SendMsg_T(void *pvParameters)
     (void)pvParameters;
     for (;;)
     {
-        OneNet_SendData(); // 发送数据
-        ESP8266_Clear1_2();
-        vTaskDelay(100);
+        vTaskGetInfo(xEspLinkTaskHandle, &xEspLink_State, pdFALSE, eInvalid);
+        if (xEspLink_State.eCurrentState == eSuspended)
+        {
+            OneNet_SendData(); // 发送数据
+            ESP8266_Clear1_2();
+        }
+        vTaskDelay(1000);
     }
 }
 void Net_RecvMsg_T(void *pvParameters)
@@ -163,13 +141,17 @@ void Net_RecvMsg_T(void *pvParameters)
     (void)pvParameters;
     for (;;)
     {
-        dataPtr = Get_xiafa_data(2);
-        if (dataPtr != NULL)
+        vTaskGetInfo(xEspLinkTaskHandle, &xEspLink_State, pdFALSE, eInvalid);
+        if (xEspLink_State.eCurrentState == eSuspended)
         {
-            // fangchong = 1;
-            OneNet_RevPro(dataPtr);
+            dataPtr = Get_xiafa_data(2);
+            if (dataPtr != NULL)
+            {
+                // fangchong = 1;
+                OneNet_RevPro(dataPtr);
+            }
         }
-        vTaskDelay(50);
+        vTaskDelay(500);
     }
 }
 void Sensor_Task(void *pvParameters)
@@ -225,7 +207,7 @@ void My_Task_Init(void)
     xTaskCreate(Net_RecvMsg_T, "RecvMsg_Task", 256, NULL, 11, &xRecvMsgHandle_t);
     if (xRecvMsgHandle_t == NULL)
         printf("RecvMsg_Task create failed\r\n");
-    // xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
+    xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
     if (xSensorTaskHandle == NULL)
         printf("Sensor_Task create failed\r\n");
     xTaskCreate(Key_Get_Task, "Key_Get_Task", 128, NULL, 12, &xKeyGetHandle_t);
@@ -243,8 +225,8 @@ void My_Drivers_Init(void)
 {
 
     LED_Manager_Init();
-    /*联网灯光*/
-    LedManager_SetLed_PulseS(0, 10, 5, 10);
+    /*联网灯光//亮灭闪烁*/
+    LedManager_SetLed_PulseS(0, 10, 10, 5);
 
     HAL_TIM_Base_Start_IT(&htim2);
     //  HAL_TIM_Base_Start(&htim1);
@@ -258,7 +240,7 @@ void My_Drivers_Init(void)
     HAL_ADC_Start(&hadc1);
     HAL_ADC_Start(&hadc2);
 
-     My_Task_Init();
+    My_Task_Init();
     Task_Tracker_Init(30 * 1000);
     //  测试git
 }

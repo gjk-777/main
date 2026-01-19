@@ -72,8 +72,8 @@ extern const uint8_t StarWar_COVER[];
 extern const uint8_t GameOver[];
 /**********Star War Dispaly function over***************************/
 
-
-
+extern const  unsigned char gImage_new[];
+extern const unsigned char gImage_2222[];
 
 #endif
 

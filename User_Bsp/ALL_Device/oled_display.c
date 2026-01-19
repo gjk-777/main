@@ -1,5 +1,6 @@
 #include "oled_display.h"
 #include "OLED.h"
+#include "OLED_Data.h"
 #include "stm32f1xx_hal.h"
 
 /**
@@ -41,10 +42,10 @@ void TimeDisplay(void)
  * @Date: 2024-10-24 10:52:08
  * @Author: Jchen
  */
-//void Data_Show(uint8_t *temp, uint8_t *humi)
+// void Data_Show(uint8_t *temp, uint8_t *humi)
 //{
-//    // 清除原来的显示
-//    OLED_ShowString(TEMP_HUMI_LOGO_POSITION_X, TEMP_HUMI_LOGO_POSITION_Y, "                ", OLED_8X16);
+//     // 清除原来的显示
+//     OLED_ShowString(TEMP_HUMI_LOGO_POSITION_X, TEMP_HUMI_LOGO_POSITION_Y, "                ", OLED_8X16);
 
 //    // 显示中文字符
 //    OLED_ShowChinese(TEMP_HUMI_LOGO_POSITION_X + 0, TEMP_HUMI_LOGO_POSITION_Y, "纪凯");
@@ -57,12 +58,24 @@ void TimeDisplay(void)
 //    OLED_ShowNum(TEMP_HUMI_LOGO_POSITION_X + 40, TEMP_HUMI_LOGO_POSITION_Y, *humi, TEMP_NUM_LEN, OLED_8X16);
 //    OLED_ShowNum(TEMP_HUMI_LOGO_POSITION_X + 104, TEMP_HUMI_LOGO_POSITION_Y, *temp, HUMI_NUM_LEN, OLED_8X16);
 //}
- void Data_Show( uint8_t *temp, uint8_t *humi )
+void Data_Show(uint8_t *temp, uint8_t *humi)
 {
-    OLED_ShowString( TEMP_HUMI_LOGO_POSITION_X, TEMP_HUMI_LOGO_POSITION_Y, " T:00C   H:000% ", OLED_8X16 );
-    
-    OLED_ShowNum( TEMP_NUM_POSITION_X, TEMP_NUM_POSITION_Y, *humi, TEMP_NUM_LEN, OLED_8X16 );
-    OLED_ShowNum( HUMI_NUM_POSITION_X, HUMI_NUM_POSITION_Y, *temp, HUMI_NUM_LEN, OLED_8X16 );
-	
-    
+    OLED_ShowString(TEMP_HUMI_LOGO_POSITION_X, TEMP_HUMI_LOGO_POSITION_Y, " T:00C   H:000% ", OLED_8X16);
+
+    OLED_ShowNum(TEMP_NUM_POSITION_X, TEMP_NUM_POSITION_Y, *humi, TEMP_NUM_LEN, OLED_8X16);
+    OLED_ShowNum(HUMI_NUM_POSITION_X, HUMI_NUM_POSITION_Y, *temp, HUMI_NUM_LEN, OLED_8X16);
+}
+
+#define OPTION_TITLE_POSITION_X 30
+#define OPTION_TITLE_POSITION_Y 2
+#define OPTION_STATUS_POSITION_X 65
+#define OPTION_STATUS_POSITION_Y 2
+#define OPTION_ICON_POSITION_X 40
+#define OPTION_ICON_POSITION_Y 22
+
+void ESP_link_imag()
+{
+    OLED_ShowString(OPTION_TITLE_POSITION_X, OPTION_TITLE_POSITION_Y, "WIFI", OLED_8X16);
+    OLED_ShowChinese(OPTION_STATUS_POSITION_X, OPTION_STATUS_POSITION_Y, "连接中");
+    OLED_ShowImage(OPTION_ICON_POSITION_X, OPTION_ICON_POSITION_Y, 48, 48, gImage_new);
 }

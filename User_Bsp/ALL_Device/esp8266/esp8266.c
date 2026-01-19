@@ -300,7 +300,7 @@ unsigned char *Connect_ONE_Returndata(unsigned short timeOut)
 				}
 			}
 		}
-		HAL_Delay(5);
+		vTaskDelay(pdMS_TO_TICKS(5));
 		// 延时等待
 	} while (timeOut--);
 	return NULL; // 超时还未找到，返回空指针
@@ -311,6 +311,7 @@ unsigned char *Connect_ONE_Returndata(unsigned short timeOut)
  * @param cmd 命令
  * @param res 需要检查的返回指令
  */
+
 void Connect(char *cmd, char *res)
 {
 	uint8_t timeOut1 = 6;
@@ -328,16 +329,17 @@ void Connect(char *cmd, char *res)
 		{
 			HAL_NVIC_SystemReset();
 		}
-		HAL_Delay(1000);
+		vTaskDelay(pdMS_TO_TICKS(1000));
 	}
 	ESP8266_Clear1_2(); // 清空缓存
 }
+
 void Connect2(char *cmd, char *res)
 {
 	uint8_t timeOut1 = 12;
 	HAL_UART_Transmit(&huart2, (unsigned char *)cmd, strlen((const char *)cmd), 1000);
 	while ((fa_Connect_WaitRecive() != REV_OK))
-		HAL_Delay(50);
+		vTaskDelay(pdMS_TO_TICKS(50));
 	//	Uart_printf(USART_DEBUG, "wifi:%s\r\n", esp8266_buf1_2);
 	while (strstr((const char *)esp8266_buf1_2, res) == NULL)
 	{
@@ -347,7 +349,7 @@ void Connect2(char *cmd, char *res)
 		{
 			HAL_NVIC_SystemReset();
 		}
-		HAL_Delay(500);
+		vTaskDelay(pdMS_TO_TICKS(500));
 	}
 	ESP8266_Clear1_2(); // 清空缓存
 }
@@ -358,21 +360,21 @@ void Connect2(char *cmd, char *res)
  */
 void ESP8266_Init(void)
 {
-	HAL_Delay(500);
+	vTaskDelay(pdMS_TO_TICKS(10));
 	ESP8266_Clear1_2();
 
 	Uart_printf(USART_DEBUG, "1. AT\r\n");
 	while (ESP8266_SendCmd2("AT\r\n", "OK"))
-		HAL_Delay(100);
+		vTaskDelay(pdMS_TO_TICKS(100));
 	Uart_printf(USART_DEBUG, "2. RST\r\n");
 	while (ESP8266_SendCmd2("AT+RST\r\n", ""))
-		HAL_Delay(500);
+		vTaskDelay(pdMS_TO_TICKS(500));
 	Uart_printf(USART_DEBUG, "3. CWMODE\r\n");
 	while (ESP8266_SendCmd2("AT+CWMODE=1\r\n", "OK"))
-		HAL_Delay(100);
+		vTaskDelay(pdMS_TO_TICKS(100));
 	Uart_printf(USART_DEBUG, "4. AT+CWDHCP=1,1\r\n");
 	while (ESP8266_SendCmd2("AT+CWDHCP=1,1\r\n", "OK"))
-		HAL_Delay(100);
+		vTaskDelay(pdMS_TO_TICKS(100));
 	Uart_printf(USART_DEBUG, "5. CWJAP\r\n");
 	Connect2((char *)ESP8266_WIFI_INFO, "GOT IP");
 	Uart_printf(USART_DEBUG, "6. ESP8266 Init OK\r\n");

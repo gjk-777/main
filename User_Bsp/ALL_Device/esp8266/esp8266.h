@@ -2,12 +2,8 @@
 #define _ESP8266_H_
 #include "main.h"
 
-
-
-
-#define REV_OK		1	//接收完成标志
-#define REV_WAIT	0	//接收未完成标志
-
+#define REV_OK 1   // 接收完成标志
+#define REV_WAIT 0 // 接收未完成标志
 
 void ESP8266_Init(void);
 

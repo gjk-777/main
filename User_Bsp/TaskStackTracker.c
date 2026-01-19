@@ -52,7 +52,6 @@ void vgCheckTaskStack(void)
   volatile UBaseType_t uxArraySize, x;
   UBaseType_t uxHighWaterMark, uxStackSize;
   uint32_t ulTotalRunTime;
-
   /* 获取系统堆栈信息 */
   vPortGetHeapStats(&heapInfo);
 

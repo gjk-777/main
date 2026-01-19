@@ -1,43 +1,41 @@
 /**
-	************************************************************
-	************************************************************
-	************************************************************
-	*	文件名： 	esp8266.c
-	*
-	*	作者： 		张继瑞
-	*
-	*	日期： 		2017-05-08
-	*
-	*	版本： 		V1.0
-	*
-	*	说明： 		ESP8266的简单驱动
-	*
-	*	修改记录：	
-	************************************************************
-	************************************************************
-	************************************************************
-**/
+ ************************************************************
+ ************************************************************
+ ************************************************************
+ *	文件名： 	esp8266.c
+ *
+ *	作者： 		张继瑞
+ *
+ *	日期： 		2017-05-08
+ *
+ *	版本： 		V1.0
+ *
+ *	说明： 		ESP8266的简单驱动
+ *
+ *	修改记录：
+ ************************************************************
+ ************************************************************
+ ************************************************************
+ **/
 
-//单片机头文件
+// 单片机头文件
 
-//网络设备驱动
+// 网络设备驱动
 #include "esp8266.h"
 
-//硬件驱动
+// 硬件驱动
 #include "usart.h"
 
-//C库
+// C库
 #include <string.h>
 #include <stdio.h>
 
 #include "cmsis_os.h"
 
-#define ESP8266_WIFI_INFO		"AT+CWJAP=\"iPhone\",\"zhang031007\"\r\n"
-
+#define ESP8266_WIFI_INFO "AT+CWJAP=\"iPhone\",\"zhang031007\"\r\n"
 
 unsigned char esp8266_buf[512];
 unsigned short esp8266_cnt = 0, esp8266_cntPre = 0;
-
 
 //==========================================================
 //	函数名称：	ESP8266_Clear
@@ -48,14 +46,13 @@ unsigned short esp8266_cnt = 0, esp8266_cntPre = 0;
 //
 //	返回参数：	无
 //
-//	说明：		
+//	说明：
 //==========================================================
 void ESP8266_Clear(void)
 {
 
 	memset(esp8266_buf, 0, sizeof(esp8266_buf));
 	esp8266_cnt = 0;
-
 }
 
 //==========================================================
@@ -72,20 +69,19 @@ void ESP8266_Clear(void)
 _Bool ESP8266_WaitRecive(void)
 {
 
-	if(esp8266_cnt == 0) 							//如果接收计数为0 则说明没有处于接收数据中，所以直接跳出，结束函数
+	if (esp8266_cnt == 0) // 如果接收计数为0 则说明没有处于接收数据中，所以直接跳出，结束函数
 		return REV_WAIT;
-		
-	if(esp8266_cnt == esp8266_cntPre)				//如果上一次的值和这次相同，则说明接收完毕
-	{
-		esp8266_cnt = 0;							//清0接收计数
-			
-		return REV_OK;								//返回接收完成标志
-	}
-		
-	esp8266_cntPre = esp8266_cnt;					//置为相同
-	
-	return REV_WAIT;								//返回接收未完成标志
 
+	if (esp8266_cnt == esp8266_cntPre) // 如果上一次的值和这次相同，则说明接收完毕
+	{
+		esp8266_cnt = 0; // 清0接收计数
+
+		return REV_OK; // 返回接收完成标志
+	}
+
+	esp8266_cntPre = esp8266_cnt; // 置为相同
+
+	return REV_WAIT; // 返回接收未完成标志
 }
 
 //==========================================================
@@ -98,30 +94,30 @@ _Bool ESP8266_WaitRecive(void)
 //
 //	返回参数：	0-成功	1-失败
 //
-//	说明：		
+//	说明：
 //==========================================================
 _Bool ESP8266_SendCmd(char *cmd, char *res)
 {
-	
+
 	unsigned char timeOut = 4;
 
 	HAL_UART_Transmit(&huart2, (unsigned char *)cmd, strlen((const char *)cmd), 50);
-	
-	while(timeOut--)
+
+	while (timeOut--)
 	{
-		if(ESP8266_WaitRecive() == REV_OK)							//如果收到数据
+		if (ESP8266_WaitRecive() == REV_OK) // 如果收到数据
 		{
-			if(strstr((const char *)esp8266_buf, res) != NULL)		//如果检索到关键词
+			if (strstr((const char *)esp8266_buf, res) != NULL) // 如果检索到关键词
 			{
-				
-				ESP8266_Clear();									//清空缓存			
+
+				ESP8266_Clear(); // 清空缓存
 				return 0;
 			}
 		}
-		
+
 		HAL_Delay(13);
 	}
-	
+
 	return 1;
 }
 
@@ -135,20 +131,19 @@ _Bool ESP8266_SendCmd(char *cmd, char *res)
 //
 //	返回参数：	无
 //
-//	说明：		
+//	说明：
 //==========================================================
 void ESP8266_SendData(unsigned char *data, unsigned short len)
 {
 
 	char cmdBuf[32];
-	
-	ESP8266_Clear();								//清空接收缓存
-	sprintf(cmdBuf, "AT+CIPSEND=%d\r\n", len);		//发送命令
-	if(!ESP8266_SendCmd(cmdBuf, ">"))				//收到‘>’时可以发送数据
-	{
-		HAL_UART_Transmit(&huart2, data, len, 50);		//发送设备连接请求数据
-	}
 
+	ESP8266_Clear();						   // 清空接收缓存
+	sprintf(cmdBuf, "AT+CIPSEND=%d\r\n", len); // 发送命令
+	if (!ESP8266_SendCmd(cmdBuf, ">"))		   // 收到‘>’时可以发送数据
+	{
+		HAL_UART_Transmit(&huart2, data, len, 50); // 发送设备连接请求数据
+	}
 }
 
 //==========================================================
@@ -167,20 +162,20 @@ unsigned char *ESP8266_GetIPD(unsigned short timeOut)
 {
 
 	char *ptrIPD = NULL;
-	
+
 	do
 	{
-		if(ESP8266_WaitRecive() == REV_OK)								//如果接收完成
+		if (ESP8266_WaitRecive() == REV_OK) // 如果接收完成
 		{
-			ptrIPD = strstr((char *)esp8266_buf, "IPD,");				//搜索“IPD”头
-			if(ptrIPD == NULL)											//如果没找到，可能是IPD头的延迟，还是需要等待一会，但不会超过设定的时间
+			ptrIPD = strstr((char *)esp8266_buf, "IPD,"); // 搜索“IPD”头
+			if (ptrIPD == NULL)							  // 如果没找到，可能是IPD头的延迟，还是需要等待一会，但不会超过设定的时间
 			{
-				//Uart_printf(USART_DEBUG, "\"IPD\" not found\r\n");
+				// Uart_printf(USART_DEBUG, "\"IPD\" not found\r\n");
 			}
 			else
 			{
-				ptrIPD = strchr(ptrIPD, ':');							//找到':'
-				if(ptrIPD != NULL)
+				ptrIPD = strchr(ptrIPD, ':'); // 找到':'
+				if (ptrIPD != NULL)
 				{
 					ptrIPD++;
 					return (unsigned char *)(ptrIPD);
@@ -188,14 +183,13 @@ unsigned char *ESP8266_GetIPD(unsigned short timeOut)
 				else
 				{
 					return NULL;
-				}					
+				}
 			}
 		}
-		
-		HAL_Delay(40);													//延时等待
-	} while(timeOut--);	
-	return NULL;														//超时还未找到，返回空指针
 
+		HAL_Delay(40); // 延时等待
+	} while (timeOut--);
+	return NULL; // 超时还未找到，返回空指针
 }
 
 //==========================================================
@@ -207,30 +201,30 @@ unsigned char *ESP8266_GetIPD(unsigned short timeOut)
 //
 //	返回参数：	无
 //
-//	说明：		
+//	说明：
 //==========================================================
 
-void ESP8266_Init(void)
-{
-	
-	ESP8266_Clear();
-	
-	Uart_printf(USART_DEBUG, "1. AT\r\n");
-	while(ESP8266_SendCmd("AT\r\n", "OK"))
-		HAL_Delay(500);
-	
-	Uart_printf(USART_DEBUG, "2. CWMODE\r\n");
-	while(ESP8266_SendCmd("AT+CWMODE=1\r\n", "OK"))
-		HAL_Delay(500);
-	
-	Uart_printf(USART_DEBUG, "3. AT+CWDHCP\r\n");
-	while(ESP8266_SendCmd("AT+CWDHCP=1,1\r\n", "OK"))
-		HAL_Delay(500);
-	
-	Uart_printf(USART_DEBUG, "4. CWJAP\r\n");
-	while(ESP8266_SendCmd(ESP8266_WIFI_INFO, "GOT IP"))
-		HAL_Delay(500);
-	
-	Uart_printf(USART_DEBUG, "5. ESP8266 Init OK\r\n");
+// void ESP8266_Init(void)
+// {
 
-}
+// 	ESP8266_Clear();
+
+// 	Uart_printf(USART_DEBUG, "1. AT\r\n");
+// 	while(ESP8266_SendCmd("AT\r\n", "OK"))
+// 		HAL_Delay(500);
+
+// 	Uart_printf(USART_DEBUG, "2. CWMODE\r\n");
+// 	while(ESP8266_SendCmd("AT+CWMODE=1\r\n", "OK"))
+// 		HAL_Delay(500);
+
+// 	Uart_printf(USART_DEBUG, "3. AT+CWDHCP\r\n");
+// 	while(ESP8266_SendCmd("AT+CWDHCP=1,1\r\n", "OK"))
+// 		HAL_Delay(500);
+
+// 	Uart_printf(USART_DEBUG, "4. CWJAP\r\n");
+// 	while(ESP8266_SendCmd(ESP8266_WIFI_INFO, "GOT IP"))
+// 		HAL_Delay(500);
+
+// 	Uart_printf(USART_DEBUG, "5. ESP8266 Init OK\r\n");
+
+// }
