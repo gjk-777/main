@@ -5,6 +5,9 @@
 #define REV_OK 1   // 接收完成标志
 #define REV_WAIT 0 // 接收未完成标志
 
+
+extern long long time;
+
 void ESP8266_Init(void);
 
 void ESP8266_Clear1_2(void);
@@ -22,4 +25,6 @@ unsigned char *Get_xiafa_data(unsigned short timeOut);
 _Bool fa_Connect_WaitRecive(void);
 _Bool shou_WaitRecive(void);
 _Bool ESP8266_WaitRecive_connect(void);
+
+void Esp_Get_Time(void);
 #endif

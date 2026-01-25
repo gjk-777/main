@@ -195,6 +195,7 @@ _Bool ESP8266_SendCmd2(char *cmd, char *res)
  * @param len 长度
  * @note 	此函数是通过AT指令将数据发送到onenet平台上的
  */
+static char cmdBuf[32];
 void ESP8266_SendData(unsigned char *data, unsigned short len)
 {
 	char cmdBuf[32];
@@ -212,12 +213,12 @@ void ESP8266_SendData(unsigned char *data, unsigned short len)
  * @param len 长度
  * @note 	此函数是通过AT指令将数据发送到onenet平台上的
  */
-static char cmdBuf[32];
+static char cmdBuf1[32];
 void ESP8266_SendData2(unsigned char *data, unsigned short len)
 {
-	ESP8266_Clear1_2();						   // 清空接收缓存
-	sprintf(cmdBuf, "AT+CIPSEND=%d\r\n", len); // 发送命令
-	if (!ESP8266_SendCmd2(cmdBuf, ">"))		   // 收到‘>’时可以发送数据
+	ESP8266_Clear1_2();							// 清空接收缓存
+	sprintf(cmdBuf1, "AT+CIPSEND=%d\r\n", len); // 发送命令
+	if (!ESP8266_SendCmd2(cmdBuf1, ">"))		// 收到‘>’时可以发送数据
 	{
 		HAL_UART_Transmit(&huart2, data, len, 5000); // 发送设备连接请求数据
 	}
@@ -378,4 +379,49 @@ void ESP8266_Init(void)
 	Uart_printf(USART_DEBUG, "5. CWJAP\r\n");
 	Connect2((char *)ESP8266_WIFI_INFO, "GOT IP");
 	Uart_printf(USART_DEBUG, "6. ESP8266 Init OK\r\n");
+}
+long long time; // 用来接收时间戳
+// 使用现有函数实现的获取时间数据函数
+static char cmd_cipstart[] = "AT+CIPSTART=\"TCP\",\"api.pinduoduo.com\",80\r\n";
+void Esp_Get_Time(void)
+{
+	//  建立TCP连接，连接api.pinduoduo.com服务器
+	ESP8266_Clear1_2();
+	Uart_printf(USART_DEBUG, "==========开始获取时间数据==========\r\n");
+	HAL_UART_Transmit(&huart2, (uint8_t *)cmd_cipstart, strlen(cmd_cipstart), 1000);
+	Uart_printf(USART_DEBUG, "发送连接指令：AT+CIPSTART=\"TCP\",\"api.pinduoduo.com\",80\r\n");
+	vTaskDelay(1000); // 延长延时，确保模块响应
+	if (strstr((char *)esp8266_buf1_2, "CONNECT") != NULL)
+	{
+		Uart_printf(USART_DEBUG, "%s", esp8266_buf1_2);
+		Uart_printf(USART_DEBUG, "CONNECT连接指令正常\r\n");
+	}
+	else
+	{
+		Uart_printf(USART_DEBUG, "连接指令失败\r\n");
+		return;
+	}
+
+	//  准备HTTP GET请求时间数据
+	char http_request[] = "GET http://api.pinduoduo.com/api/server/_stm\r\n";
+	uint16_t req_len = strlen(http_request);
+
+	ESP8266_SendData2((unsigned char *)http_request, req_len);
+	Uart_printf(USART_DEBUG, "HTTP请求发送完成！等待服务器响应...\r\n");
+	vTaskDelay(1000); // 延长延时，等待服务器返回数据（根据网络调整）
+
+	// 打印返回数据
+	Uart_printf(USART_DEBUG, "服务器原始返回数据：\r\n%s\r\n", esp8266_buf1_2);
+	char *p;
+	p = strstr((char *)esp8266_buf1_2, "server_time"); // 查找时间戳所在位置
+	if (p != NULL)
+	{
+		sscanf(p + 13, "%lld}", &time);
+		Uart_printf(USART_DEBUG, "提取的服务器时间戳：%lld\r\n", time);
+	}
+	else
+	{
+		Uart_printf(USART_DEBUG, "未找到时间戳数据\r\n");
+	}
+	Uart_printf(USART_DEBUG, "==========时间数据获取结束==========\r\n");
 }
