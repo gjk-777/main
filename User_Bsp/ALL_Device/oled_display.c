@@ -58,13 +58,6 @@ void TimeDisplay(void)
 //    OLED_ShowNum(TEMP_HUMI_LOGO_POSITION_X + 40, TEMP_HUMI_LOGO_POSITION_Y, *humi, TEMP_NUM_LEN, OLED_8X16);
 //    OLED_ShowNum(TEMP_HUMI_LOGO_POSITION_X + 104, TEMP_HUMI_LOGO_POSITION_Y, *temp, HUMI_NUM_LEN, OLED_8X16);
 //}
-void Data_Show(uint8_t *temp, uint8_t *humi)
-{
-    OLED_ShowString(TEMP_HUMI_LOGO_POSITION_X, TEMP_HUMI_LOGO_POSITION_Y, " T:00C   H:000% ", OLED_8X16);
-
-    OLED_ShowNum(TEMP_NUM_POSITION_X, TEMP_NUM_POSITION_Y, *humi, TEMP_NUM_LEN, OLED_8X16);
-    OLED_ShowNum(HUMI_NUM_POSITION_X, HUMI_NUM_POSITION_Y, *temp, HUMI_NUM_LEN, OLED_8X16);
-}
 
 #define OPTION_TITLE_POSITION_X 30
 #define OPTION_TITLE_POSITION_Y 2
@@ -79,3 +72,36 @@ void ESP_link_imag()
     OLED_ShowChinese(OPTION_STATUS_POSITION_X, OPTION_STATUS_POSITION_Y, "连接中");
     OLED_ShowImage(OPTION_ICON_POSITION_X, OPTION_ICON_POSITION_Y, 48, 48, gImage_new);
 }
+
+void Data_Show(uint8_t *temp, uint8_t *humi, float *smoke, float *co)
+{
+    // Row 1: Temperature and Humidity
+    OLED_ShowChinese(0, 0, "温度");
+    OLED_ShowChar(32, 0, ':', OLED_8X16);
+    OLED_ShowNum(40, 0, *humi, 2, OLED_8X16);
+    OLED_ShowChar(56, 0, 'C', OLED_8X16);
+
+    OLED_ShowChinese(64, 0, "湿度");
+    OLED_ShowChar(96, 0, ':', OLED_8X16);
+    OLED_ShowNum(104, 0, *temp, 2, OLED_8X16);
+    OLED_ShowChar(120, 0, '%', OLED_8X16);
+
+    // Row 2: Smoke (MQ2)
+    OLED_ShowChinese(0, 16, "烟雾");
+    OLED_ShowChar(32, 16, ':', OLED_8X16);
+    // Display float: 3 Int + 1 Dot + 1 Frac = 5 chars
+    OLED_ShowFloatNum(40, 16, *smoke, 3, 1, OLED_8X16);
+    OLED_ShowString(80, 16, "ppm", OLED_8X16);
+
+    // Row 3: CO (MQ7)
+    OLED_ShowString(0, 32, "CO", OLED_8X16);
+    OLED_ShowChar(16, 32, ':', OLED_8X16);
+    // Display float
+    OLED_ShowFloatNum(24, 32, *co, 3, 1, OLED_8X16);
+    OLED_ShowString(64, 32, "ppm", OLED_8X16);
+
+    // Row 4: Clear previous content
+    OLED_ShowString(0, 48, "                ", OLED_8X16);
+}
+
+

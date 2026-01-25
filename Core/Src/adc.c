@@ -212,11 +212,11 @@ float MQ2_GetPPM()
 {
   uint16_t ADC_Val;
   ADC_Val = ADC_Get(&hadc1);
-  float vol = ADC_Val * 3.3 / 4096.0f; // STM32F1通常使用3.3V参考电压，使用浮点数计算
+  float vol = ADC_Val * 5.0f / 4096.0f; // STM32F1通常使用3.3V参考电压，使用浮点数计算
   printf("Mq2烟雾浓度_vol : %.2f\r\n", vol);
-  float RS = (3.3 - vol) / (vol * 0.5);
+  float RS = (5.0f - vol) / (vol * 0.5);
   float R0 = 6.64;
-  float ppm = pow(11.5428 * R0 / RS, 0.6549f);
+  float ppm = pow(11.5428 * R0 / RS, 0.6549f)*10;
   return ppm;
 }
 
@@ -225,11 +225,11 @@ float CO_MQ7_GetPPM()
 {
   uint16_t ADC_Val;
   ADC_Val = ADC_Get(&hadc2);
-  float vol = ADC_Val * 3.3 / 4096.0f; // STM32F1通常使用3.3V参考电压，使用浮点数计算
+  float vol = ADC_Val * 5.0f / 4096.0f; // STM32F1通常使用3.3V参考电压，使用浮点数计算
   printf("Mq7_一氧化碳_vol : %.2f\r\n", vol);
   float R0 = 6.64;
-  float RS = (3.3 - vol) / (vol * 0.5); // 使用3.3V参考电压，与实际硬件一致
-  float ppm = pow(11.5428 * R0 / RS, 0.6549f);
+  float RS = (5 - vol) / (vol * 0.5); // 使用3.3V参考电压，与实际硬件一致
+  float ppm = pow(11.5428 * R0 / RS, 0.6549f)*10;
   return ppm;
 }
 

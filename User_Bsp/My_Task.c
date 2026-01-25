@@ -16,6 +16,7 @@
 #include "esp8266.h"
 #include "onenet.h"
 #include "adc.h"
+#include "rtc.h"
 
 #include "queue.h"  //队列
 #include "timers.h" //软件定时器
@@ -40,8 +41,6 @@ extern DMA_HandleTypeDef hdma_usart1_rx;
 TaskHandle_t xLedTaskHandle;
 TaskHandle_t xHomeTaskHandle;
 TaskHandle_t xEspLinkTaskHandle;
-TaskHandle_t xSendMsgHandle_t;
-TaskHandle_t xRecvMsgHandle_t;
 TaskHandle_t xSensorTaskHandle;
 TaskHandle_t xKeyGetHandle_t;
 TimerHandle_t xTimerHandle_Key;
@@ -56,38 +55,38 @@ static void Name_Show()
     OLED_ShowChinese(0, 48, "宇");
     OLED_ShowChinese(115, 48, "郭");
 }
-
+static char time_str[20];
+static char date_str[20];
 void My_Led_Task(void *pvParameters)
 {
     (void)pvParameters;
+    vTaskDelay(15 * 1000);
     while (1)
     {
 
-        //         Bsp_LedToggle();
-        //			        vTaskDelay(1000);
-        //        //  printf("led亮\r\n");
-        //        //   PassiveBuzzer_Test();
-        //         Beep_OnOff(0);
-
-        vTaskDelay(3000);
+        vTaskDelay(1000);
     }
 }
 
-void Home_Task(void *pvParameters)
+void HomePage_Task(void *pvParameters)
 {
     (void)pvParameters;
+	  DHT11Senser_Read(&humi, &temp);
     while (1)
     {
-        OLED_Clear();
-        TimeDisplay();
-        if (count++ == 2)
+        vTaskGetInfo(xEspLinkTaskHandle, &xEspLink_State, pdFALSE, eInvalid);
+        if (xEspLink_State.eCurrentState == eSuspended)
         {
-            count = 0;
-            DHT11Senser_Read(&humi, &temp);
+            OLED_Clear();
+            if (count++ == 2)
+            {
+                count = 0;
+                DHT11Senser_Read(&humi, &temp);
+            }
+            Data_Show(&temp, &humi, &adc_mq2, &adc_CO_MQ7);
+            OLED_Update();
+            vTaskDelay(500);
         }
-        Data_Show(&temp, &humi);
-        OLED_Update();
-        vTaskDelay(500);
     }
 }
 static uint8_t k = 0;
@@ -104,7 +103,12 @@ void EspLink_Task(void *pvParameters)
 
     ESP8266_Init(); // 初始化ESP8266
     vTaskDelay(100);
+    Esp_Get_Time();
+    // 将网络获取的时间戳写入RTC
+    MyRTC_SetTimeFromTimestamp(time);
+    Uart_printf(USART_DEBUG, "网络时间已写入RTC：%lld\r\n", time);
     Uart_printf(USART_DEBUG, "Connect MQTTs Server...\r\n");
+
     Connect(ESP8266_ONENET_INFO, "CONNECT");
     vTaskDelay(100);
     Uart_printf(USART_DEBUG, "Connect MQTT Server Success--OKOKOKOK\r\n");
@@ -118,8 +122,8 @@ void EspLink_Task(void *pvParameters)
     Uart_printf(USART_DEBUG, "---------------------------Subscribe，Successful\r\n");
 
     LedManager_SetLed_OnOff(0, false);
+
     vTaskSuspend(NULL); // 挂起本任务
-    // vTaskDelete(NULL);
     vTaskDelay(portMAX_DELAY);
 }
 void Net_SendMsg_T(void *pvParameters)
@@ -195,18 +199,14 @@ void My_Task_Init(void)
     xTaskCreate(EspLink_Task, "EspLink_Task", 256, NULL, 20, &xEspLinkTaskHandle);
     if (xEspLinkTaskHandle == NULL)
         printf("EspLink_Task create failed\r\n");
-    // xTaskCreate(My_Led_Task, "My_Led_Task", 256, NULL, 10, &xLedTaskHandle);
+    xTaskCreate(My_Led_Task, "My_Led_Task", 256, NULL, 10, &xLedTaskHandle);
     if (xLedTaskHandle == NULL)
         printf("My_Led_Task create failed\r\n");
-    xTaskCreate(Home_Task, "My_Home_Task", 256, NULL, 10, &xHomeTaskHandle);
+    xTaskCreate(HomePage_Task, "My_Home_Task", 256, NULL, 10, &xHomeTaskHandle);
     if (xHomeTaskHandle == NULL)
         printf("Home_Task create failed\r\n");
-    xTaskCreate(Net_SendMsg_T, "SendMsg_Task", 256, NULL, 11, &xSendMsgHandle_t);
-    if (xSendMsgHandle_t == NULL)
-        printf("SendMsg_Task create failed\r\n");
-    xTaskCreate(Net_RecvMsg_T, "RecvMsg_Task", 256, NULL, 11, &xRecvMsgHandle_t);
-    if (xRecvMsgHandle_t == NULL)
-        printf("RecvMsg_Task create failed\r\n");
+    xTaskCreate(Net_SendMsg_T, "SendMsg_Task", 256, NULL, 11, NULL);
+    xTaskCreate(Net_RecvMsg_T, "RecvMsg_Task", 256, NULL, 11, NULL);
     xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
     if (xSensorTaskHandle == NULL)
         printf("Sensor_Task create failed\r\n");
@@ -239,6 +239,8 @@ void My_Drivers_Init(void)
     OLED_Clear();
     HAL_ADC_Start(&hadc1);
     HAL_ADC_Start(&hadc2);
+
+    MyRTC_SetTime(); // 设置时间
 
     My_Task_Init();
     Task_Tracker_Init(30 * 1000);

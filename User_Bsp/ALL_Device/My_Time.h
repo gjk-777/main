@@ -1,6 +1,8 @@
 
-#ifndef __TIME_H_
-#define __TIME_H_
+#ifndef __MY_TIME_H_
+#define __MY_TIME_H_
+
+#include "stdint.h"
 
 void DateAndTime_Init(void);
 

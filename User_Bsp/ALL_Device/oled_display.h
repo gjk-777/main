@@ -31,6 +31,6 @@
 #define HUMI_NUM_LEN 3
 
 void TimeDisplay(void);
-void Data_Show(uint8_t *temp, uint8_t *humi);
+void Data_Show(uint8_t *temp, uint8_t *humi, float *smoke, float *co);
 void ESP_link_imag();
 #endif
