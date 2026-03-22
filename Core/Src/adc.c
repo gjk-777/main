@@ -217,7 +217,13 @@ float MQ2_GetPPM()
   float RS = (5.0f - vol) / (vol * 0.5);
   float R0 = 6.64;
   float ppm = pow(11.5428 * R0 / RS, 0.6549f)*10;
-  return ppm;
+  
+  // 将烟雾浓度转换为百分比 (最大值为 25273.54)
+  float max_ppm = 25273.54f;
+  float percentage = (ppm / max_ppm) * 100.0f;
+  if (percentage > 100.0f) percentage = 100.0f;
+  
+  return percentage;
 }
 
 
