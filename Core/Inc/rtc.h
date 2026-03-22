@@ -22,35 +22,35 @@
 #define __RTC_H__
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
-  /* USER CODE BEGIN Includes */
+/* USER CODE BEGIN Includes */
 
-  /* USER CODE END Includes */
+/* USER CODE END Includes */
 
-  extern RTC_HandleTypeDef hrtc;
+extern RTC_HandleTypeDef hrtc;
 
-  /* USER CODE BEGIN Private defines */
+/* USER CODE BEGIN Private defines */
 
-  /* USER CODE END Private defines */
+/* USER CODE END Private defines */
 
-  void MX_RTC_Init(void);
+void MX_RTC_Init(void);
 
-  /* USER CODE BEGIN Prototypes */
+/* USER CODE BEGIN Prototypes */
   extern uint16_t MyRTC_Time[]; // 联网获取时间后该数组会更新
   void MyRTC_SetTime(void);
   void MyRTC_ReadTime(void);
   void MyRTC_SetTimeFromTimestamp(long long timestamp_ms); // 从网络时间戳设置RTC时间
 
-  /* USER CODE END Prototypes */
+/* USER CODE END Prototypes */
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif /* __RTC_H__ */
+

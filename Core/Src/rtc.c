@@ -43,7 +43,7 @@ void MX_RTC_Init(void)
   /* USER CODE END RTC_Init 1 */
 
   /** Initialize RTC Only
-   */
+  */
   hrtc.Instance = RTC;
   hrtc.Init.AsynchPrediv = RTC_AUTO_1_SECOND;
   hrtc.Init.OutPut = RTC_OUTPUTSOURCE_NONE;
@@ -57,7 +57,7 @@ void MX_RTC_Init(void)
   /* USER CODE END Check_RTC_BKUP */
 
   /** Initialize RTC and set the Time and Date
-   */
+  */
   sTime.Hours = 0x10;
   sTime.Minutes = 0x5;
   sTime.Seconds = 0x0;
@@ -78,40 +78,41 @@ void MX_RTC_Init(void)
   /* USER CODE BEGIN RTC_Init 2 */
 
   /* USER CODE END RTC_Init 2 */
+
 }
 
-void HAL_RTC_MspInit(RTC_HandleTypeDef *rtcHandle)
+void HAL_RTC_MspInit(RTC_HandleTypeDef* rtcHandle)
 {
 
-  if (rtcHandle->Instance == RTC)
+  if(rtcHandle->Instance==RTC)
   {
-    /* USER CODE BEGIN RTC_MspInit 0 */
+  /* USER CODE BEGIN RTC_MspInit 0 */
 
-    /* USER CODE END RTC_MspInit 0 */
+  /* USER CODE END RTC_MspInit 0 */
     HAL_PWR_EnableBkUpAccess();
     /* Enable BKP CLK enable for backup registers */
     __HAL_RCC_BKP_CLK_ENABLE();
     /* RTC clock enable */
     __HAL_RCC_RTC_ENABLE();
-    /* USER CODE BEGIN RTC_MspInit 1 */
+  /* USER CODE BEGIN RTC_MspInit 1 */
 
-    /* USER CODE END RTC_MspInit 1 */
+  /* USER CODE END RTC_MspInit 1 */
   }
 }
 
-void HAL_RTC_MspDeInit(RTC_HandleTypeDef *rtcHandle)
+void HAL_RTC_MspDeInit(RTC_HandleTypeDef* rtcHandle)
 {
 
-  if (rtcHandle->Instance == RTC)
+  if(rtcHandle->Instance==RTC)
   {
-    /* USER CODE BEGIN RTC_MspDeInit 0 */
+  /* USER CODE BEGIN RTC_MspDeInit 0 */
 
-    /* USER CODE END RTC_MspDeInit 0 */
+  /* USER CODE END RTC_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_RTC_DISABLE();
-    /* USER CODE BEGIN RTC_MspDeInit 1 */
+  /* USER CODE BEGIN RTC_MspDeInit 1 */
 
-    /* USER CODE END RTC_MspDeInit 1 */
+  /* USER CODE END RTC_MspDeInit 1 */
   }
 }
 
