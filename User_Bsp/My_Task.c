@@ -197,41 +197,45 @@ void Sensor_Task(void *pvParameters)
     (void)pvParameters;
     for (;;)
     {
-        adc_mq2 = MQ2_GetPPM();
-        adc_CO_MQ7 = CO_MQ7_GetPPM();
-
-        xEventGroupClearBits(xAlarmEvent, EVENT_ALL_BITS);
-
-        if (temp > APP_TEMP_ALARM_C)
+        vTaskGetInfo(xEspLinkTaskHandle, &xEspLink_State, pdFALSE, eInvalid);
+        if (xEspLink_State.eCurrentState == eSuspended)
         {
-            printf("温度异常：%d℃\r\n", temp);
-            xEventGroupSetBits(xAlarmEvent, EVENT_TEMP_BITS);
-        }
+            adc_mq2 = MQ2_GetPPM();
+            adc_CO_MQ7 = CO_MQ7_GetPPM();
 
-        float mq2_threshold = cooking_status ? APP_MQ2_COOKING_THRESHOLD : APP_MQ2_NORMAL_THRESHOLD;
-        float co_threshold = cooking_status ? APP_CO_COOKING_THRESHOLD : APP_CO_NORMAL_THRESHOLD;
+            xEventGroupClearBits(xAlarmEvent, EVENT_ALL_BITS);
 
-        if (adc_mq2 > mq2_threshold)
-        {
-            printf("mq2烟雾浓度异常：%.2f%% (阈值: %.0f%%)\r\n", adc_mq2, mq2_threshold);
-            xEventGroupSetBits(xAlarmEvent, EVENT_MQ2_BITS);
-        }
+            if (temp > APP_TEMP_ALARM_C)
+            {
+                printf("温度异常：%d℃\r\n", temp);
+                xEventGroupSetBits(xAlarmEvent, EVENT_TEMP_BITS);
+            }
 
-        if (adc_CO_MQ7 > co_threshold)
-        {
-            printf("CO浓度异常：%.2fppm (阈值: %.0fppm)\r\n", adc_CO_MQ7, co_threshold);
-            xEventGroupSetBits(xAlarmEvent, EVENT_CO_MQ7_BITS);
+            float mq2_threshold = cooking_status ? APP_MQ2_COOKING_THRESHOLD : APP_MQ2_NORMAL_THRESHOLD;
+            float co_threshold = cooking_status ? APP_CO_COOKING_THRESHOLD : APP_CO_NORMAL_THRESHOLD;
+
+            if (adc_mq2 > mq2_threshold)
+            {
+                printf("mq2烟雾浓度异常：%.2f%% (阈值: %.0f%%)\r\n", adc_mq2, mq2_threshold);
+                xEventGroupSetBits(xAlarmEvent, EVENT_MQ2_BITS);
+            }
+
+            if (adc_CO_MQ7 > co_threshold)
+            {
+                printf("CO浓度异常：%.2fppm (阈值: %.0fppm)\r\n", adc_CO_MQ7, co_threshold);
+                xEventGroupSetBits(xAlarmEvent, EVENT_CO_MQ7_BITS);
+            }
+            printf("做饭模式: %s | 温度：%d℃, CO浓度：%.2fppm, 烟雾浓度：%.2f%%\r\n",
+                   cooking_status ? "开启" : "关闭", temp, adc_CO_MQ7, adc_mq2);
+            Get_Fire_State();
+            if (fire_status)
+            {
+                printf("火灾检测到！\r\n");
+                xEventGroupSetBits(xAlarmEvent, EVENT_FIRE_BITS);
+            }
+            Body_State();
+            vTaskDelay(pdMS_TO_TICKS(APP_SENSOR_SCAN_PERIOD_MS));
         }
-        printf("做饭模式: %s | 温度：%d℃, CO浓度：%.2fppm, 烟雾浓度：%.2f%%\r\n",
-               cooking_status ? "开启" : "关闭", temp, adc_CO_MQ7, adc_mq2);
-        Get_Fire_State();
-        if (fire_status)
-        {
-            printf("火灾检测到！\r\n");
-            xEventGroupSetBits(xAlarmEvent, EVENT_FIRE_BITS);
-        }
-        Body_State();
-        vTaskDelay(pdMS_TO_TICKS(APP_SENSOR_SCAN_PERIOD_MS));
     }
 }
 
