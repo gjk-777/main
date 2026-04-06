@@ -9,7 +9,7 @@ extern TIM_HandleTypeDef htim1;
 static TIM_HandleTypeDef *g_HPWM_PassiveBuzzer = &htim1;
 
 bool beep_status = false;
-
+//注释
 /**********************************************************************
  * 函数名称： PassiveBuzzer_Init
  * 功能描述： 无源蜂鸣器的初始化函数
