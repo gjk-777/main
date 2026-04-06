@@ -9,6 +9,8 @@
 #include "led_manager.h"
 #include "oled_display.h"
 #include "buzzer.h"
+extern bool fire_status;
+extern bool cooking_status;
 #include "dht11.h"
 #include "usart.h"
 #include "string.h"
@@ -20,6 +22,7 @@
 
 #include "queue.h"  //队列
 #include "timers.h" //软件定时器
+#include "event_groups.h"
 #include "FreeRTOSConfig.h"
 #include "TaskStackTracker.h"
 #define ESP8266_ONENET_INFO "AT+CIPSTART=\"TCP\",\"mqtts.heclouds.com\",1883\r\n"
@@ -46,6 +49,23 @@ TaskHandle_t xKeyGetHandle_t;
 TimerHandle_t xTimerHandle_Key;
 
 TaskStatus_t xEspLink_State; // 任务状态结构体
+// 事件组
+EventGroupHandle_t xAlarmEvent = NULL;
+
+#define EVENT_TEMP_BITS (0x01 << 0)
+#define EVENT_MQ2_BITS (0x01 << 1)
+#define EVENT_CO_MQ7_BITS (0x01 << 2)
+#define EVENT_FIRE_BITS (0x01 << 3)
+#define EVENT_ALL_BITS (EVENT_TEMP_BITS | EVENT_MQ2_BITS | EVENT_CO_MQ7_BITS | EVENT_FIRE_BITS)
+
+/* Kitchen safety application policy (application-layer only). */
+#define APP_DATA_UPLOAD_PERIOD_MS 1000
+#define APP_SENSOR_SCAN_PERIOD_MS 500
+#define APP_TEMP_ALARM_C 32
+#define APP_MQ2_COOKING_THRESHOLD 20.0f
+#define APP_MQ2_NORMAL_THRESHOLD 10.0f
+#define APP_CO_COOKING_THRESHOLD 50.0f
+#define APP_CO_NORMAL_THRESHOLD 25.0f
 
 static void Name_Show()
 {
@@ -57,35 +77,50 @@ static void Name_Show()
 }
 static char time_str[20];
 static char date_str[20];
+
 void My_Led_Task(void *pvParameters)
 {
     (void)pvParameters;
     vTaskDelay(15 * 1000);
+    Servo_angle(0);
     while (1)
     {
-
         vTaskDelay(1000);
     }
 }
-
 void HomePage_Task(void *pvParameters)
 {
     (void)pvParameters;
-	  DHT11Senser_Read(&humi, &temp);
+    static uint32_t switch_count = 0;
+    static uint8_t display_mode = 1; // 0: Data, 1: Time (Start with Time)
+    DHT11Senser_Read(&humi, &temp);
     while (1)
     {
         vTaskGetInfo(xEspLinkTaskHandle, &xEspLink_State, pdFALSE, eInvalid);
         if (xEspLink_State.eCurrentState == eSuspended)
         {
-            OLED_Clear();
-            if (count++ == 2)
+            // Update sensors every ~1.5 seconds (30 * 50ms)
+            if (count++ >= 30)
             {
                 count = 0;
                 DHT11Senser_Read(&humi, &temp);
             }
-            Data_Show(&temp, &humi, &adc_mq2, &adc_CO_MQ7);
+
+            // Switch mode every ~3 seconds (60 * 50ms)
+            if (++switch_count >= 60)
+            {
+                switch_count = 0;
+                display_mode = !display_mode; // Toggle 0 <-> 1
+            }
+            // Handle Display Logic (Data <-> Time switch)
+            OLED_Display_Switch(display_mode, &temp, &humi, &adc_mq2, &adc_CO_MQ7);
+            vTaskDelay(50);
+        }
+        else
+        {
+            ESP_link_imag();
             OLED_Update();
-            vTaskDelay(500);
+            vTaskDelay(200);
         }
     }
 }
@@ -137,7 +172,7 @@ void Net_SendMsg_T(void *pvParameters)
             OneNet_SendData(); // 发送数据
             ESP8266_Clear1_2();
         }
-        vTaskDelay(1000);
+        vTaskDelay(pdMS_TO_TICKS(APP_DATA_UPLOAD_PERIOD_MS));
     }
 }
 void Net_RecvMsg_T(void *pvParameters)
@@ -151,7 +186,6 @@ void Net_RecvMsg_T(void *pvParameters)
             dataPtr = Get_xiafa_data(2);
             if (dataPtr != NULL)
             {
-                // fangchong = 1;
                 OneNet_RevPro(dataPtr);
             }
         }
@@ -160,27 +194,94 @@ void Net_RecvMsg_T(void *pvParameters)
 }
 void Sensor_Task(void *pvParameters)
 {
+    (void)pvParameters;
     for (;;)
     {
-        adc_mq2 = MQ2_GetPPM(); // ADC采集程序
+        adc_mq2 = MQ2_GetPPM();
         adc_CO_MQ7 = CO_MQ7_GetPPM();
-        if (adc_mq2 > 100.0f)
+
+        xEventGroupClearBits(xAlarmEvent, EVENT_ALL_BITS);
+
+        if (temp > APP_TEMP_ALARM_C)
         {
-            printf("mq2浓度异常：%.2fppm\r\n", adc_mq2);
-            Beep_OnOff(1);
+            printf("温度异常：%d℃\r\n", temp);
+            xEventGroupSetBits(xAlarmEvent, EVENT_TEMP_BITS);
         }
-        if (adc_CO_MQ7 > 100.0f)
+
+        float mq2_threshold = cooking_status ? APP_MQ2_COOKING_THRESHOLD : APP_MQ2_NORMAL_THRESHOLD;
+        float co_threshold = cooking_status ? APP_CO_COOKING_THRESHOLD : APP_CO_NORMAL_THRESHOLD;
+
+        if (adc_mq2 > mq2_threshold)
         {
-            printf("CO浓度异常：%.2fppm\r\n", adc_CO_MQ7);
-            Beep_OnOff(1);
+            printf("mq2烟雾浓度异常：%.2f%% (阈值: %.0f%%)\r\n", adc_mq2, mq2_threshold);
+            xEventGroupSetBits(xAlarmEvent, EVENT_MQ2_BITS);
         }
-        printf("CO浓度 ：%.2fppm\r\n", adc_CO_MQ7);
-        printf("mq浓度 ：%.2fppm\r\n", adc_mq2);
+
+        if (adc_CO_MQ7 > co_threshold)
+        {
+            printf("CO浓度异常：%.2fppm (阈值: %.0fppm)\r\n", adc_CO_MQ7, co_threshold);
+            xEventGroupSetBits(xAlarmEvent, EVENT_CO_MQ7_BITS);
+        }
+        printf("做饭模式: %s | 温度：%d℃, CO浓度：%.2fppm, 烟雾浓度：%.2f%%\r\n",
+               cooking_status ? "开启" : "关闭", temp, adc_CO_MQ7, adc_mq2);
         Get_Fire_State();
+        if (fire_status)
+        {
+            printf("火灾检测到！\r\n");
+            xEventGroupSetBits(xAlarmEvent, EVENT_FIRE_BITS);
+        }
         Body_State();
-        vTaskDelay(1000);
+        vTaskDelay(pdMS_TO_TICKS(APP_SENSOR_SCAN_PERIOD_MS));
     }
 }
+
+void Alarm_Process_Task()
+{
+    for (;;)
+    {
+        uint32_t bits = xEventGroupWaitBits(xAlarmEvent, EVENT_ALL_BITS, pdTRUE, pdFALSE, portMAX_DELAY);
+        Fire_Alarm_Set(true);
+        if (bits & EVENT_FIRE_BITS)
+        {
+            Fire_Alarm_Process();
+        }
+        else if (bits & EVENT_TEMP_BITS)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                PassiveBuzzer_Set_Freq_Duty(1000, 50);
+                vTaskDelay(100);
+                PassiveBuzzer_Set_Freq_Duty(800, 50);
+                vTaskDelay(100);
+            }
+        }
+        else if (bits & EVENT_MQ2_BITS)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                PassiveBuzzer_Set_Freq_Duty(600, 50);
+                vTaskDelay(150);
+                PassiveBuzzer_Set_Freq_Duty(800, 50);
+                vTaskDelay(150);
+            }
+        }
+        else if (bits & EVENT_CO_MQ7_BITS)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                PassiveBuzzer_Set_Freq_Duty(400, 50);
+                vTaskDelay(200);
+                PassiveBuzzer_Set_Freq_Duty(600, 50);
+                vTaskDelay(200);
+            }
+        }
+
+        Fire_Alarm_Set(false);
+        PassiveBuzzer_Control(0);
+        vTaskDelay(500);
+    }
+}
+
 void Key_Get_Task(void *pvParameters)
 {
     (void)pvParameters;
@@ -206,13 +307,19 @@ void My_Task_Init(void)
     if (xHomeTaskHandle == NULL)
         printf("Home_Task create failed\r\n");
     xTaskCreate(Net_SendMsg_T, "SendMsg_Task", 256, NULL, 11, NULL);
-    xTaskCreate(Net_RecvMsg_T, "RecvMsg_Task", 256, NULL, 11, NULL);
+    xTaskCreate(Net_RecvMsg_T, "RecvMsg_Task", 300, NULL, 11, NULL);
     xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
     if (xSensorTaskHandle == NULL)
         printf("Sensor_Task create failed\r\n");
     xTaskCreate(Key_Get_Task, "Key_Get_Task", 128, NULL, 12, &xKeyGetHandle_t);
     if (xKeyGetHandle_t == NULL)
         printf("Key_Get_Task create failed\r\n");
+
+    xAlarmEvent = xEventGroupCreate();
+    if (xAlarmEvent == NULL)
+        printf("xAlarmEvent create failed\r\n");
+
+    xTaskCreate(Alarm_Process_Task, "Alarm_Process_Task", 128, NULL, 12, NULL);
 
     // 创建一个软件定时器
     // xTimerHandle_Key = xTimerCreate("KeyTimer", pdMS_TO_TICKS(1), pdTRUE, (void *)0, Key_TimerCallback);
@@ -233,12 +340,17 @@ void My_Drivers_Init(void)
     HAL_UART_Receive_IT(&huart2, &chuan, 1);
     /* 需要在初始化时调用一次否则无法接收到内容 */
     HAL_UARTEx_ReceiveToIdle_DMA(&huart1, Uart1RxBuffer, BUF_SIZE);
-    // PassiveBuzzer_Init();
-    Beep_GPIO_Init();
+    PassiveBuzzer_Init();
+    HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
+    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+    // Beep_GPIO_Init();
     OLED_Init();
     OLED_Clear();
     HAL_ADC_Start(&hadc1);
     HAL_ADC_Start(&hadc2);
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); // PWM_1
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // PWM_2
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 2000);
 
     MyRTC_SetTime(); // 设置时间
 

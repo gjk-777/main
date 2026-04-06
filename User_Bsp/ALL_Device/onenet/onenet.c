@@ -37,7 +37,6 @@
 #include "usart.h"
 #include "led.h"
 #include "buzzer.h"
-#include "flash_config.h" // Flash配置模块
 // C库
 #include <string.h>
 #include <stdio.h>
@@ -609,9 +608,6 @@ void OneNet_RevPro(unsigned char *cmd)
 					{
 						if (OneNet_ParseBool(cooking_json, &bool_value))
 						{
-							// 使用配置接口更新并保存到Flash
-							Config_UpdateCookingStatus(bool_value);
-							// 同时更新全局变量
 							cooking_status = bool_value;
 							has_valid_param = 1;
 							Uart_printf(USART_DEBUG, "Cooking %s\r\n", cooking_status ? "ON" : "OFF");

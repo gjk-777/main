@@ -1,10 +1,13 @@
 #include "led.h"
 #include "main.h"
 #include "led_manager.h"
-
+#include "tim.h"
+#include "buzzer.h"
 bool led_status = false;
 bool fire_status = false;
 bool body_status = false;
+bool cooking_status = false;
+uint8_t window_angle_status = 0;
 void Led_Set(_Bool status)
 {
     led_status = status;
@@ -93,30 +96,39 @@ void Body_State(void)
     }
 }
 
-void HandleSingleClick()
+void Servo_angle(uint8_t angle)
 {
-    // 蜂鸣器响
-    Beep_OnOff(0);
-    printf("单击\r\n");
-    Led_Set(0);
+    if (angle > 90)
+        angle = 90; // Clamp angle to 0-90
+    uint32_t compare_value = 500 + (angle * 2000 / 180);
+    window_angle_status = angle;
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, compare_value);
 }
 
-void HandleDoubleClick()
-{
-    // 处理双击事件
-    // 蜂鸣器响
-    Beep_OnOff(0);
-    printf("双击\r\n");
-}
+// void HandleSingleClick()
+// {
+//     // 蜂鸣器响
+//     Beep_OnOff(0);
+//     printf("单击\r\n");
+//     Led_Set(0);
+// }
 
-void HandleLongPress()
-{
-    // 处理长按事件
-    // 蜂鸣器响
-    Beep_OnOff(1);
-    printf("长按\r\n");
-    Led_Set(1);
-}
+// void HandleDoubleClick()
+// {
+//     // 处理双击事件
+//     // 蜂鸣器响
+//     Beep_OnOff(0);
+//     printf("双击\r\n");
+// }
+
+// void HandleLongPress()
+// {
+//     // 处理长按事件
+//     // 蜂鸣器响
+//     Beep_OnOff(1);
+//     printf("长按\r\n");
+//     Led_Set(1);
+// }
 
 #define DEBOUNCE_TIME 50      // 防抖时间（ms）
 #define SINGLE_CLICK_TIME 500 // 单击最大时间间隔（ms）
@@ -139,10 +151,10 @@ volatile uint32_t debounceTime = 0;
 volatile bool isLongPress = false; // 标记是否发生了长按
 volatile uint8_t clickCount = 0;   // 点击计数
 
-//void ButtonHandler(void)
+// void ButtonHandler(void)
 //{
-//    uint8_t curKeyState = HAL_GPIO_ReadPin(Key1_GPIO_Port, Key1_Pin);
-//    uint32_t currentTime = xTaskGetTickCount();
+//     uint8_t curKeyState = HAL_GPIO_ReadPin(Key1_GPIO_Port, Key1_Pin);
+//     uint32_t currentTime = xTaskGetTickCount();
 
 //    switch (buttonState)
 //    {
