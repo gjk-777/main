@@ -207,7 +207,7 @@ void My_Task_Init(void)
         printf("Home_Task create failed\r\n");
     xTaskCreate(Net_SendMsg_T, "SendMsg_Task", 256, NULL, 11, NULL);
     xTaskCreate(Net_RecvMsg_T, "RecvMsg_Task", 256, NULL, 11, NULL);
-    xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
+    //xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
     if (xSensorTaskHandle == NULL)
         printf("Sensor_Task create failed\r\n");
     xTaskCreate(Key_Get_Task, "Key_Get_Task", 128, NULL, 12, &xKeyGetHandle_t);

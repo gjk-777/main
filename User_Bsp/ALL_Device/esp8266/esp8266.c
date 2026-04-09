@@ -184,7 +184,7 @@ _Bool ESP8266_SendCmd2(char *cmd, char *res)
 				return 0;
 			}
 		}
-		HAL_Delay(5);
+		vTaskDelay(pdMS_TO_TICKS(5));
 	}
 	return 1;
 }
@@ -379,6 +379,11 @@ void ESP8266_Init(void)
 	Uart_printf(USART_DEBUG, "5. CWJAP\r\n");
 	Connect2((char *)ESP8266_WIFI_INFO, "GOT IP");
 	Uart_printf(USART_DEBUG, "6. ESP8266 Init OK\r\n");
+
+	// 进入单连接模式
+	while (ESP8266_SendCmd2("AT+CIPMUX=0\r\n", "OK\r\n"))
+		vTaskDelay(pdMS_TO_TICKS(1000)); // 设置为单连接模式
+
 }
 long long time; // 用来接收时间戳
 // 使用现有函数实现的获取时间数据函数
@@ -394,13 +399,23 @@ void Esp_Get_Time(void)
 	if (strstr((char *)esp8266_buf1_2, "CONNECT") != NULL)
 	{
 		Uart_printf(USART_DEBUG, "%s", esp8266_buf1_2);
-		Uart_printf(USART_DEBUG, "CONNECT连接指令正常\r\n");
+		Uart_printf(USART_DEBUG, "服务器连接指令正常\r\n");
 	}
 	else
 	{
-		Uart_printf(USART_DEBUG, "连接指令失败\r\n");
+		Uart_printf(USART_DEBUG, "服务器连接指令失败\r\n");
 		return;
 	}
+
+	// // 进入透传模式
+	// while (ESP8266_SendCmd2("AT+CIPMODE=1\r\n", "OK"))
+	// 	vTaskDelay(pdMS_TO_TICKS(1000));
+	// Uart_printf(USART_DEBUG, "进入透传模式\r\n");
+
+	// // 开始透传数据
+	// while (ESP8266_SendCmd2("AT+CIPSEND\r\n", ">"))
+	// 	vTaskDelay(pdMS_TO_TICKS(1000));
+	// Uart_printf(USART_DEBUG, "开始透传数据\r\n");
 
 	//  准备HTTP GET请求时间数据
 	char http_request[] = "GET http://api.pinduoduo.com/api/server/_stm\r\n";
@@ -408,7 +423,7 @@ void Esp_Get_Time(void)
 
 	ESP8266_SendData2((unsigned char *)http_request, req_len);
 	Uart_printf(USART_DEBUG, "HTTP请求发送完成！等待服务器响应...\r\n");
-	vTaskDelay(1000); // 延长延时，等待服务器返回数据（根据网络调整）
+	vTaskDelay(2000); // 延长延时，等待服务器返回数据（根据网络调整）
 
 	// 打印返回数据
 	Uart_printf(USART_DEBUG, "服务器原始返回数据：\r\n%s\r\n", esp8266_buf1_2);
@@ -416,12 +431,17 @@ void Esp_Get_Time(void)
 	p = strstr((char *)esp8266_buf1_2, "server_time"); // 查找时间戳所在位置
 	if (p != NULL)
 	{
-		sscanf(p + 13, "%lld}", &time);
+		sscanf(p + 13, "%lld", &time);
 		Uart_printf(USART_DEBUG, "提取的服务器时间戳：%lld\r\n", time);
 	}
 	else
 	{
 		Uart_printf(USART_DEBUG, "未找到时间戳数据\r\n");
 	}
+	// 退出透传
+	// HAL_UART_Transmit(&huart2, (uint8_t *)"+++", 3, 1000);
+	// Uart_printf(USART_DEBUG, "退出透传模式\r\n");
+	// // 关闭连接
+
 	Uart_printf(USART_DEBUG, "==========时间数据获取结束==========\r\n");
 }
