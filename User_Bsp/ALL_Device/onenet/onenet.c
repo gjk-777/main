@@ -37,6 +37,11 @@
 #include "usart.h"
 #include "led.h"
 #include "buzzer.h"
+
+// RTOS
+#include "FreeRTOS.h"
+#include "task.h"
+
 // C库
 #include <string.h>
 #include <stdio.h>
@@ -56,7 +61,9 @@ extern unsigned char esp8266_buf1_2[256], esp8266_buf3[256];
 extern uint8_t humi;
 extern uint8_t temp;
 extern bool cooking_status;
+extern bool fan_status;
 extern uint8_t window_angle_status;
+extern uint8_t famen_angle_status;
 
 /*
 ************************************************************
@@ -287,6 +294,7 @@ _Bool OneNet_DevLink(void)
 uint8_t fenci;
 extern float adc_mq2;
 extern float adc_CO_MQ7;
+uint8_t fenci;
 /*********************12.1注释掉了，后面要打开******************/
 unsigned char OneNet_FillBuf(char *buf)
 {
@@ -294,40 +302,55 @@ unsigned char OneNet_FillBuf(char *buf)
 	char text[48];
 	memset(text, 0, sizeof(text));
 	strcpy(buf, "{\"id\":\"123\",\"params\":{");
-	memset(text, 0, sizeof(text));
-	sprintf(text, "\"temp\":{\"value\":%d},", temp);
-	strcat(buf, text);
-	memset(text, 0, sizeof(text));
-	sprintf(text, "\"humi\":{\"value\":%d},", humi);
-	strcat(buf, text);
-	memset(text, 0, sizeof(text));
-	sprintf(text, "\"Mq2\":{\"value\":%.2f},", adc_mq2);
-	strcat(buf, text);
-	memset(text, 0, sizeof(text));
-	sprintf(text, "\"CO\":{\"value\":%.2f},", adc_CO_MQ7);
-	strcat(buf, text);
+	if (fenci == 0)
+	{
+		fenci = 1;
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"temp\":{\"value\":%d},", temp);
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"humi\":{\"value\":%d},", humi);
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"Mq2\":{\"value\":%.2f},", adc_mq2);
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"CO\":{\"value\":%.2f},", adc_CO_MQ7);
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"LED\":{\"value\":%s},", led_status ? "true" : "false");
+		strcat(buf, text);
+	}
+	else if (fenci == 1)
+	{
+		fenci = 0;
 
-	memset(text, 0, sizeof(text));
-	sprintf(text, "\"LED\":{\"value\":%s},", led_status ? "true" : "false");
-	strcat(buf, text);
-	memset(text, 0, sizeof(text));
-	sprintf(text, "\"Beep\":{\"value\":%s}", beep_status ? "true" : "false");
-	strcat(buf, text);
-	memset(text, 0, sizeof(text));
-	sprintf(text, ",\"Fire\":{\"value\":%s}", fire_status ? "true" : "false");
-	strcat(buf, text);
-	memset(text, 0, sizeof(text));
-	sprintf(text, ",\"Cooking\":{\"value\":%s}", cooking_status ? "true" : "false");
-	strcat(buf, text);
-	memset(text, 0, sizeof(text));
-	sprintf(text, ",\"Window\":{\"value\":%d}", window_angle_status);
-	strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"Beep\":{\"value\":%s},", beep_status ? "true" : "false");
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"Fire\":{\"value\":%s},", fire_status ? "true" : "false");
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"Cooking\":{\"value\":%s},", cooking_status ? "true" : "false");
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"Window\":{\"value\":%d},", window_angle_status);
+		strcat(buf, text);
+
+	}
+			memset(text, 0, sizeof(text));
+		sprintf(text, "\"fan\":{\"value\":%s},", fan_status ? "true" : "false");
+		strcat(buf, text);
+
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"famen\":{\"value\":%d}", famen_angle_status);
+		strcat(buf, text);
 
 	strcat(buf, "}}");
 
 	return strlen(buf);
 }
-
 //==========================================================
 //	函数名称：	OneNet_SendData
 //
@@ -668,6 +691,67 @@ void OneNet_RevPro(unsigned char *cmd)
 							Uart_printf(USART_DEBUG, "Window Parse Error\r\n");
 						}
 					}
+
+					// 解析 famen 属性（阀门）
+					int famen_angle = 0;
+					cJSON *famen_json = cJSON_GetObjectItem(params_json, "famen");
+					if (famen_json == NULL)
+						famen_json = cJSON_GetObjectItem(params_json, "famen");
+					if (famen_json != NULL)
+					{
+						if (OneNet_ParseWindowAngle(famen_json, &famen_angle))
+						{
+							Famen_angle((uint8_t)famen_angle);
+							has_valid_param = 1;
+							Uart_printf(USART_DEBUG, "Famen Angle Set: %d\r\n", famen_angle);
+						}
+						else
+						{
+							has_invalid_param = 1;
+							Uart_printf(USART_DEBUG, "Famen Parse Error\r\n");
+						}
+					}
+
+					// 解析 reboot 属性
+					cJSON *reboot_json = cJSON_GetObjectItem(params_json, "reboot");
+					if (reboot_json != NULL)
+					{
+						cJSON *value_json = cJSON_GetObjectItem(reboot_json, "value");
+						int reboot_value = 0;
+
+						if (value_json != NULL && value_json->type == cJSON_Number)
+						{
+							reboot_value = (int)(value_json->valuedouble + 0.5f);
+						}
+						else if (reboot_json->type == cJSON_Number)
+						{
+							reboot_value = (int)(reboot_json->valuedouble + 0.5f);
+						}
+						else if (reboot_json->type == cJSON_String && reboot_json->valuestring != NULL)
+						{
+							reboot_value = atoi(reboot_json->valuestring);
+						}
+
+						if (reboot_value == 1)
+						{
+							has_valid_param = 1;
+							Uart_printf(USART_DEBUG, "Reboot Command Received! System will restart in 3 seconds...\r\n");
+							OneNet_PropertySetReply(raw_json, 200, "reboot scheduled");
+							vTaskDelay(pdMS_TO_TICKS(3000));
+							HAL_NVIC_SystemReset();
+						}
+						else if (reboot_value == 0)
+						{
+							has_valid_param = 1;
+							Uart_printf(USART_DEBUG, "Reboot Status: Normal (0)\r\n");
+						}
+						else
+						{
+							has_invalid_param = 1;
+							Uart_printf(USART_DEBUG, "Invalid Reboot Value: %d (should be 0 or 1)\r\n", reboot_value);
+						}
+					}
+
 					if (has_valid_param)
 						OneNet_PropertySetReply(raw_json, 200, "success");
 					else if (has_invalid_param)

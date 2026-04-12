@@ -133,19 +133,18 @@ void OLED_Display_Switch(uint8_t mode, uint8_t *temp, uint8_t *humi, float *smok
 
     if (mode != last_mode)
     {
-        OLED_LowRAM_Transition(mode, temp, humi, smoke, co);
+        /* 界面切换过渡效果 */
+        for (uint8_t i = 0; i < 8; i++)
+        {
+            memset(OLED_DisplayBuf[i], 0, 128);
+            OLED_UpdateArea(0, i * 8, 128, 8);
+            vTaskDelay(20);
+        }
+        OLED_Clear();
         last_mode = mode;
     }
-    else
-    {
-        if (mode == 0)
-        {
-            Data_Show(temp, humi, smoke, co);
-        }
-        else
-        {
-            View_Time();
-        }
-        OLED_Update();
-    }
+
+    /* 只显示数据，不再切换时间界面 */
+    Data_Show(temp, humi, smoke, co);
+    OLED_Update();
 }

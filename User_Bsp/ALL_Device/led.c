@@ -3,11 +3,14 @@
 #include "led_manager.h"
 #include "tim.h"
 #include "buzzer.h"
+#include "use_boot_flash.h"
 bool led_status = false;
 bool fire_status = false;
 bool body_status = false;
 bool cooking_status = false;
+bool fan_status = false;
 uint8_t window_angle_status = 0;
+uint8_t famen_angle_status = 0;
 void Led_Set(_Bool status)
 {
     led_status = status;
@@ -103,6 +106,31 @@ void Servo_angle(uint8_t angle)
     uint32_t compare_value = 500 + (angle * 2000 / 180);
     window_angle_status = angle;
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, compare_value);
+
+    // 保存窗口角度到Flash（实现掉电不丢失）
+    Window_Flash_Save(angle);
+}
+
+/**
+ * @brief 设置阀门角度（使用TIM3_CHANNEL_2）
+ * @param angle 阀门角度 (0-90度)
+ *
+ * 执行流程：
+ * 1. 参数校验，角度限制在0-90度
+ * 2. 计算PWM占空比值
+ * 3. 设置TIM3通道2的比较值
+ * 4. 保存阀门角度到Flash（实现掉电不丢失）
+ */
+void Famen_angle(uint8_t angle)
+{
+    if (angle > 90)
+        angle = 90; // Clamp angle to 0-90
+    uint32_t compare_value = 500 + (angle * 2000 / 180);
+    famen_angle_status = angle;
+    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, compare_value);
+
+    // 保存阀门角度到Flash（实现掉电不丢失）
+    Famen_Flash_Save(angle);
 }
 
 // void HandleSingleClick()

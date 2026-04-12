@@ -214,3 +214,337 @@
 //}
 
 
+/***********************************窗口属性Flash存储实现*********************************/
+#include "led.h"
+
+/**
+ * @brief 计算校验和
+ * @param data 数据指针
+ * @param len 数据长度
+ * @return 校验和
+ */
+static uint16_t Window_CalculateChecksum(uint8_t *data, uint16_t len)
+{
+    uint16_t checksum = 0;
+    for (uint16_t i = 0; i < len; i++)
+    {
+        checksum += data[i];
+    }
+    return checksum;
+}
+
+/**
+ * @brief 解锁Flash
+ */
+static void Window_Flash_Unlock(void)
+{
+    HAL_FLASH_Unlock();
+    __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_WRPERR | FLASH_FLAG_PGERR);
+}
+
+/**
+ * @brief 锁定Flash
+ */
+static void Window_Flash_Lock(void)
+{
+    HAL_FLASH_Lock();
+}
+
+/**
+ * @brief 擦除指定Flash页
+ * @param pageAddress 页起始地址
+ * @return 0成功，1失败
+ */
+static uint8_t Window_Flash_ErasePage(uint32_t pageAddress)
+{
+    FLASH_EraseInitTypeDef EraseInitStruct;
+    uint32_t pageError = 0;
+
+    EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+    EraseInitStruct.PageAddress = pageAddress;
+    EraseInitStruct.NbPages = 1;
+
+    if (HAL_FLASHEx_Erase(&EraseInitStruct, &pageError) != HAL_OK)
+    {
+        return 1;
+    }
+    return 0;
+}
+
+/**
+ * @brief 将窗口角度保存到Flash
+ * @param angle 窗户角度 (0-90度)
+ * @return WindowFlashStatus_t 操作状态
+ * 
+ * 执行流程：
+ * 1. 参数校验，角度限制在0-90度
+ * 2. 构建WindowData_t结构体，填入魔数和角度
+ * 3. 计算校验和
+ * 4. 解锁Flash
+ * 5. 擦除目标页
+ * 6. 按字(32位)写入数据
+ * 7. 锁定Flash
+ * 
+ * 注意：Flash写入必须按16位或32位对齐
+ */
+WindowFlashStatus_t Window_Flash_Save(uint8_t angle)
+{
+    // 角度限制
+    if (angle > 90)
+    {
+        angle = 90;
+    }
+
+    // 构建数据结构
+    WindowData_t windowData;
+    windowData.magic = WINDOW_DATA_MAGIC;
+    windowData.window_angle = angle;
+    windowData.reserved[0] = 0;
+    windowData.reserved[1] = 0;
+    windowData.reserved[2] = 0;
+    
+    // 计算校验和(不包括checksum字段本身)
+    windowData.checksum = Window_CalculateChecksum((uint8_t *)&windowData, 
+                                                    sizeof(WindowData_t) - sizeof(uint16_t));
+
+    // 解锁Flash
+    Window_Flash_Unlock();
+
+    // 擦除页
+    if (Window_Flash_ErasePage(WINDOW_FLASH_ADDR) != 0)
+    {
+        Window_Flash_Lock();
+        printf("[Window Flash] Erase failed!\r\n");
+        return WINDOW_FLASH_ERASE_ERROR;
+    }
+
+    // 写入数据(按32位字写入)
+    uint32_t *dataPtr = (uint32_t *)&windowData;
+    uint32_t wordCount = (sizeof(WindowData_t) + 3) / 4;  // 向上取整到字对齐
+
+    for (uint32_t i = 0; i < wordCount; i++)
+    {
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, 
+                              WINDOW_FLASH_ADDR + i * 4, 
+                              dataPtr[i]) != HAL_OK)
+        {
+            Window_Flash_Lock();
+            printf("[Window Flash] Write failed at word %d!\r\n", i);
+            return WINDOW_FLASH_WRITE_ERROR;
+        }
+    }
+
+    // 锁定Flash
+    Window_Flash_Lock();
+
+    printf("[Window Flash] Save success! Angle=%d\r\n", angle);
+    return WINDOW_FLASH_OK;
+}
+
+/**
+ * @brief 从Flash加载窗口角度
+ * @param angle 输出参数，读取到的角度
+ * @return WindowFlashStatus_t 操作状态
+ * 
+ * 执行流程：
+ * 1. 从Flash地址读取WindowData_t结构体
+ * 2. 验证魔数是否正确
+ * 3. 验证校验和
+ * 4. 返回角度值
+ * 
+ * 注意：直接从Flash读取不需要解锁
+ */
+WindowFlashStatus_t Window_Flash_Load(uint8_t *angle)
+{
+    WindowData_t *windowData = (WindowData_t *)WINDOW_FLASH_ADDR;
+
+    // 检查魔数
+    if (windowData->magic != WINDOW_DATA_MAGIC)
+    {
+        printf("[Window Flash] Invalid magic: 0x%08X (expected 0x%08X)\r\n", 
+               windowData->magic, WINDOW_DATA_MAGIC);
+        return WINDOW_FLASH_DATA_INVALID;
+    }
+
+    // 计算并验证校验和
+    uint16_t calcChecksum = Window_CalculateChecksum((uint8_t *)windowData, 
+                                                      sizeof(WindowData_t) - sizeof(uint16_t));
+    if (calcChecksum != windowData->checksum)
+    {
+        printf("[Window Flash] Checksum mismatch: calc=0x%04X, stored=0x%04X\r\n", 
+               calcChecksum, windowData->checksum);
+        return WINDOW_FLASH_DATA_INVALID;
+    }
+
+    // 检查角度范围
+    if (windowData->window_angle > 90)
+    {
+        printf("[Window Flash] Invalid angle: %d\r\n", windowData->window_angle);
+        return WINDOW_FLASH_DATA_INVALID;
+    }
+
+    *angle = windowData->window_angle;
+    printf("[Window Flash] Load success! Angle=%d\r\n", *angle);
+    return WINDOW_FLASH_OK;
+}
+
+/**
+ * @brief 窗口Flash初始化，上电时调用
+ * 
+ * 执行流程：
+ * 1. 尝试从Flash读取窗口角度
+ * 2. 如果数据有效，设置PWM恢复窗户状态
+ * 3. 如果数据无效(首次上电或Flash损坏)，使用默认角度0
+ * 
+ * 注意：此函数应在PWM初始化之后调用
+ */
+void Window_Flash_Init(void)
+{
+    uint8_t angle = 0;
+    WindowFlashStatus_t status = Window_Flash_Load(&angle);
+
+    if (status == WINDOW_FLASH_OK)
+    {
+        // 数据有效，恢复窗户角度
+        printf("[Window Flash] Restoring angle: %d\r\n", angle);
+        Servo_angle(angle);
+    }
+    else
+    {
+        // 数据无效，使用默认值并保存
+        printf("[Window Flash] Using default angle: 0\r\n");
+        Servo_angle(0);
+        Window_Flash_Save(0);
+    }
+}
+
+/***********************************阀门属性Flash存储实现*********************************/
+/**
+ * @brief 计算校验和（复用窗户的函数）
+ */
+// 使用上面定义的Window_CalculateChecksum函数
+
+/**
+ * @brief 将阀门角度保存到Flash
+ * @param angle 阀门角度 (0-90度)
+ * @return WindowFlashStatus_t 操作状态
+ */
+WindowFlashStatus_t Famen_Flash_Save(uint8_t angle)
+{
+    // 角度限制
+    if (angle > 90)
+    {
+        angle = 90;
+    }
+
+    // 构建数据结构
+    FamenData_t famenData;
+    famenData.magic = FAMEN_DATA_MAGIC;
+    famenData.famen_angle = angle;
+    famenData.reserved[0] = 0;
+    famenData.reserved[1] = 0;
+    famenData.reserved[2] = 0;
+
+    // 计算校验和(不包括checksum字段本身)
+    famenData.checksum = Window_CalculateChecksum((uint8_t *)&famenData,
+                                                   sizeof(FamenData_t) - sizeof(uint16_t));
+
+    // 解锁Flash
+    Window_Flash_Unlock();
+
+    // 擦除页
+    if (Window_Flash_ErasePage(FAMEN_FLASH_ADDR) != 0)
+    {
+        Window_Flash_Lock();
+        printf("[Famen Flash] Erase failed!\r\n");
+        return WINDOW_FLASH_ERASE_ERROR;
+    }
+
+    // 写入数据(按32位字写入)
+    uint32_t *dataPtr = (uint32_t *)&famenData;
+    uint32_t wordCount = (sizeof(FamenData_t) + 3) / 4;  // 向上取整到字对齐
+
+    for (uint32_t i = 0; i < wordCount; i++)
+    {
+        if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD,
+                              FAMEN_FLASH_ADDR + i * 4,
+                              dataPtr[i]) != HAL_OK)
+        {
+            Window_Flash_Lock();
+            printf("[Famen Flash] Write failed at word %d!\r\n", i);
+            return WINDOW_FLASH_WRITE_ERROR;
+        }
+    }
+
+    // 锁定Flash
+    Window_Flash_Lock();
+
+    printf("[Famen Flash] Save success! Angle=%d\r\n", angle);
+    return WINDOW_FLASH_OK;
+}
+
+/**
+ * @brief 从Flash加载阀门角度
+ * @param angle 输出参数，读取到的角度
+ * @return WindowFlashStatus_t 操作状态
+ */
+WindowFlashStatus_t Famen_Flash_Load(uint8_t *angle)
+{
+    FamenData_t *famenData = (FamenData_t *)FAMEN_FLASH_ADDR;
+
+    // 检查魔数
+    if (famenData->magic != FAMEN_DATA_MAGIC)
+    {
+        printf("[Famen Flash] Invalid magic: 0x%08X (expected 0x%08X)\r\n",
+               famenData->magic, FAMEN_DATA_MAGIC);
+        return WINDOW_FLASH_DATA_INVALID;
+    }
+
+    // 计算并验证校验和
+    uint16_t calcChecksum = Window_CalculateChecksum((uint8_t *)famenData,
+                                                      sizeof(FamenData_t) - sizeof(uint16_t));
+    if (calcChecksum != famenData->checksum)
+    {
+        printf("[Famen Flash] Checksum mismatch: calc=0x%04X, stored=0x%04X\r\n",
+               calcChecksum, famenData->checksum);
+        return WINDOW_FLASH_DATA_INVALID;
+    }
+
+    // 检查角度范围
+    if (famenData->famen_angle > 90)
+    {
+        printf("[Famen Flash] Invalid angle: %d\r\n", famenData->famen_angle);
+        return WINDOW_FLASH_DATA_INVALID;
+    }
+
+    *angle = famenData->famen_angle;
+    printf("[Famen Flash] Load success! Angle=%d\r\n", *angle);
+    return WINDOW_FLASH_OK;
+}
+
+/**
+ * @brief 阀门Flash初始化，上电时调用
+ */
+void Famen_Flash_Init(void)
+{
+    uint8_t angle = 0;
+    WindowFlashStatus_t status = Famen_Flash_Load(&angle);
+
+    if (status == WINDOW_FLASH_OK)
+    {
+        // 数据有效，恢复阀门角度
+        printf("[Famen Flash] Restoring angle: %d\r\n", angle);
+        Famen_angle(angle);
+    }
+    else
+    {
+        // 数据无效，使用默认值并保存
+        printf("[Famen Flash] Using default angle: 0\r\n");
+        Famen_angle(0);
+        Famen_Flash_Save(0);
+    }
+}
+
+
+
+

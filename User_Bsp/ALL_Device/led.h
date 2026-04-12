@@ -6,6 +6,7 @@ extern bool led_status;
 extern bool fire_status;
 extern bool body_status;
 extern bool cooking_status;
+extern bool fan_status;
 extern uint8_t window_angle_status;
 void Led_Set(_Bool status);
 // #define Led_SetStatus(X) HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin, (!X))
@@ -23,4 +24,5 @@ void LED_Manager_Init(void);
 // 使用LED管理器控制LED示例
 void LED_Manager_Usage(void);
 void Servo_angle(uint8_t angle);
+void Famen_angle(uint8_t angle);
 #endif

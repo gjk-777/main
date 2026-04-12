@@ -41,4 +41,59 @@
 
 //void Boot_Brance(void);
 
+/***********************************窗口属性Flash存储*********************************/
+// STM32F103C8 Flash配置
+#define WINDOW_FLASH_PAGE_SIZE    1024                                 // Flash页大小
+#define WINDOW_FLASH_PAGE_NUM     63                                   // 使用第63页(最后一页)
+#define WINDOW_FLASH_ADDR         (0x08000000 + WINDOW_FLASH_PAGE_NUM * WINDOW_FLASH_PAGE_SIZE) // 0x0800FC00
+
+// 魔数，用于验证数据有效性
+#define WINDOW_DATA_MAGIC         0x57444F57  // "WDOW" (Window)
+
+// 窗口属性数据结构体
+typedef struct
+{
+    uint32_t magic;           // 魔数，用于验证数据有效性
+    uint8_t  window_angle;    // 窗户角度 (0-90度)
+    uint8_t  reserved[3];     // 保留字节，4字节对齐
+    uint16_t checksum;        // 校验和
+} WindowData_t;
+
+// Flash操作返回值
+typedef enum
+{
+    WINDOW_FLASH_OK = 0,       // 操作成功
+    WINDOW_FLASH_ERASE_ERROR,  // 擦除失败
+    WINDOW_FLASH_WRITE_ERROR,  // 写入失败
+    WINDOW_FLASH_READ_ERROR,   // 读取失败
+    WINDOW_FLASH_DATA_INVALID  // 数据无效
+} WindowFlashStatus_t;
+
+// 函数声明
+WindowFlashStatus_t Window_Flash_Save(uint8_t angle);
+WindowFlashStatus_t Window_Flash_Load(uint8_t *angle);
+void Window_Flash_Init(void);
+
+/***********************************阀门属性Flash存储*********************************/
+// 使用第62页存储阀门数据
+#define FAMEN_FLASH_PAGE_NUM     62
+#define FAMEN_FLASH_ADDR         (0x08000000 + FAMEN_FLASH_PAGE_NUM * WINDOW_FLASH_PAGE_SIZE) // 0x0800F800
+
+// 阀门魔数
+#define FAMEN_DATA_MAGIC         0x46414D45  // "FAME" (Famen)
+
+// 阀门属性数据结构体
+typedef struct
+{
+    uint32_t magic;           // 魔数，用于验证数据有效性
+    uint8_t  famen_angle;     // 阀门角度 (0-90度)
+    uint8_t  reserved[3];     // 保留字节，4字节对齐
+    uint16_t checksum;        // 校验和
+} FamenData_t;
+
+// 阀门Flash操作函数声明
+WindowFlashStatus_t Famen_Flash_Save(uint8_t angle);
+WindowFlashStatus_t Famen_Flash_Load(uint8_t *angle);
+void Famen_Flash_Init(void);
+
 #endif

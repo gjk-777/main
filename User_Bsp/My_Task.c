@@ -138,9 +138,9 @@ void EspLink_Task(void *pvParameters)
 
     ESP8266_Init(); // 初始化ESP8266
     vTaskDelay(100);
-    Esp_Get_Time();
-    // 将网络获取的时间戳写入RTC
-    MyRTC_SetTimeFromTimestamp(time);
+    // Esp_Get_Time();
+    //  将网络获取的时间戳写入RTC
+    // MyRTC_SetTimeFromTimestamp(time);
     Uart_printf(USART_DEBUG, "网络时间已写入RTC：%lld\r\n", time);
     Uart_printf(USART_DEBUG, "Connect MQTTs Server...\r\n");
 
@@ -354,7 +354,12 @@ void My_Drivers_Init(void)
     HAL_ADC_Start(&hadc2);
     HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); // PWM_1
     HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // PWM_2
-    __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 2000);
+
+    // 从Flash加载窗口属性并恢复PWM设置
+    Window_Flash_Init();
+    // 从Flash加载阀门属性并恢复PWM设置
+    Famen_Flash_Init();
+    // __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 2000);
 
     MyRTC_SetTime(); // 设置时间
 
