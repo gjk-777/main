@@ -101,7 +101,7 @@ _Bool fa_Connect_WaitRecive(void)
 		并返回 ERROR 或SEND FAIL。这是因为在发送数据时，ESP8266 尝试使用一个无效的 TCP 连接。
 		正好每1秒就要用这个指令上传数据，利用这个机制，就可以不断的检测连接状态。
 		*/
-		if (strstr((char *)esp8266_buf1_2, "ERROR"))
+		if (strstr((char *)esp8266_buf1_2, "ERROR") || strstr((char *)esp8266_buf1_2, "SEND FAIL"))
 		{
 			error_num++;
 			if (error_num > 3)

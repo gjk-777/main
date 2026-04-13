@@ -67,6 +67,12 @@ void Error_Handler(void);
 #define Key1_GPIO_Port GPIOB
 #define Key2_Pin GPIO_PIN_11
 #define Key2_GPIO_Port GPIOB
+#define LED_Beep_Pin GPIO_PIN_13
+#define LED_Beep_GPIO_Port GPIOB
+#define Fan_Pin_Pin GPIO_PIN_14
+#define Fan_Pin_GPIO_Port GPIOB
+#define ZhaoMing_LED_Pin GPIO_PIN_15
+#define ZhaoMing_LED_GPIO_Port GPIOB
 #define DHT11_PA11_Pin GPIO_PIN_11
 #define DHT11_PA11_GPIO_Port GPIOA
 #define w25q64_cs_Pin GPIO_PIN_12

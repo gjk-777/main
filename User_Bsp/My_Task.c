@@ -75,8 +75,8 @@ static void Name_Show()
     OLED_ShowChinese(0, 48, "宇");
     OLED_ShowChinese(115, 48, "郭");
 }
-static char time_str[20];
-static char date_str[20];
+// static char time_str[20];
+// static char date_str[20];
 
 void My_Led_Task(void *pvParameters)
 {
@@ -113,13 +113,17 @@ void HomePage_Task(void *pvParameters)
                 display_mode = !display_mode; // Toggle 0 <-> 1
             }
             // Handle Display Logic (Data <-> Time switch)
-            OLED_Display_Switch(display_mode, &temp, &humi, &adc_mq2, &adc_CO_MQ7);
+            OLED_Update();
+
+            Data_Show(&temp, &humi, &adc_mq2, &adc_CO_MQ7);
+
             vTaskDelay(50);
         }
         else
         {
-            ESP_link_imag();
-            OLED_Update();
+            OLED_Clear();
+            // ESP_link_imag();
+            // OLED_Update();
             vTaskDelay(200);
         }
     }
@@ -131,7 +135,6 @@ void EspLink_Task(void *pvParameters)
     OLED_Clear();
     ESP_link_imag();
     OLED_Update();
-
     // M24C02_Test();
     // PassiveBuzzer_Test();
     printf("tasktask\r\n");
@@ -157,9 +160,8 @@ void EspLink_Task(void *pvParameters)
     Uart_printf(USART_DEBUG, "---------------------------Subscribe，Successful\r\n");
 
     LedManager_SetLed_OnOff(0, false);
-
+    OLED_Clear();
     vTaskSuspend(NULL); // 挂起本任务
-    vTaskDelay(portMAX_DELAY);
 }
 void Net_SendMsg_T(void *pvParameters)
 {
@@ -197,6 +199,9 @@ void Sensor_Task(void *pvParameters)
     (void)pvParameters;
     for (;;)
     {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_SET);
+        vTaskDelay(pdMS_TO_TICKS(APP_SENSOR_SCAN_PERIOD_MS));
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_RESET);
         vTaskGetInfo(xEspLinkTaskHandle, &xEspLink_State, pdFALSE, eInvalid);
         if (xEspLink_State.eCurrentState == eSuspended)
         {
@@ -315,15 +320,15 @@ void My_Task_Init(void)
     xTaskCreate(Sensor_Task, "Sensor_Task", 256, NULL, 10, &xSensorTaskHandle);
     if (xSensorTaskHandle == NULL)
         printf("Sensor_Task create failed\r\n");
-    xTaskCreate(Key_Get_Task, "Key_Get_Task", 128, NULL, 12, &xKeyGetHandle_t);
-    if (xKeyGetHandle_t == NULL)
-        printf("Key_Get_Task create failed\r\n");
+    // xTaskCreate(Key_Get_Task, "Key_Get_Task", 128, NULL, 12, &xKeyGetHandle_t);
+    // if (xKeyGetHandle_t == NULL)
+    //    printf("Key_Get_Task create failed\r\n");
 
     xAlarmEvent = xEventGroupCreate();
     if (xAlarmEvent == NULL)
         printf("xAlarmEvent create failed\r\n");
 
-    xTaskCreate(Alarm_Process_Task, "Alarm_Process_Task", 128, NULL, 12, NULL);
+    // xTaskCreate(Alarm_Process_Task, "Alarm_Process_Task", 128, NULL, 12, NULL);
 
     // 创建一个软件定时器
     // xTimerHandle_Key = xTimerCreate("KeyTimer", pdMS_TO_TICKS(1), pdTRUE, (void *)0, Key_TimerCallback);

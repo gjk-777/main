@@ -656,14 +656,14 @@ void OneNet_RevPro(unsigned char *cmd)
 						}
 					}
 
-					// 解析 Beep
+					// 解析 Beep（使用PWM方式控制无源蜂鸣器）
 					cJSON *beep_json = cJSON_GetObjectItem(params_json, "Beep");
 					if (beep_json != NULL)
 					{
-						extern void Beep_OnOff(bool on);
+						extern void PassiveBuzzer_Control(int on);
 						if (OneNet_ParseBool(beep_json, &bool_value))
 						{
-							Beep_OnOff(bool_value);
+							PassiveBuzzer_Control(bool_value ? 1 : 0);
 							has_valid_param = 1;
 							Uart_printf(USART_DEBUG, "Beep %s\r\n", bool_value ? "ON" : "OFF");
 						}

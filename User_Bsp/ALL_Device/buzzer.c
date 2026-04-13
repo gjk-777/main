@@ -45,8 +45,10 @@ void PassiveBuzzer_Init(void)
     // return;
 
     sConfig.OCMode = TIM_OCMODE_PWM1;        // PWM 输出的两种模式:PWM1 当极性为低,CCR<CNT,输出低电平,反之高电平
-    sConfig.OCPolarity = TIM_OCPOLARITY_LOW; // 设置极性为低(硬件上低电平亮灯)
+    sConfig.OCPolarity = TIM_OCPOLARITY_LOW; // 设置极性为低(硬件上低电平响)
     sConfig.OCFastMode = TIM_OCFAST_DISABLE; // 输出比较快速使能禁止(仅在 PWM1 和 PWM2 可设置)
+    sConfig.OCIdleState = TIM_OCIDLESTATE_SET;   // 空闲状态输出高电平（蜂鸣器静音）
+    sConfig.OCNIdleState = TIM_OCNIDLESTATE_RESET;
     sConfig.Pulse = 500 - 1;                 // 在 PWM1 模式下,50%占空比
 
     HAL_TIM_PWM_ConfigChannel(g_HPWM_PassiveBuzzer, &sConfig, TIM_CHANNEL_1);
@@ -114,8 +116,10 @@ void PassiveBuzzer_Set_Freq_Duty(int freq, int duty)
     HAL_TIM_Base_Init(g_HPWM_PassiveBuzzer);
 
     sConfig.OCMode = TIM_OCMODE_PWM1;                  // PWM 输出的两种模式:PWM1 当极性为低,CCR<CNT,输出低电平,反之高电平
-    sConfig.OCPolarity = TIM_OCPOLARITY_LOW;           // 设置极性为低(硬件上低电平亮灯)
+    sConfig.OCPolarity = TIM_OCPOLARITY_LOW;           // 设置极性为低(硬件上低电平响)
     sConfig.OCFastMode = TIM_OCFAST_DISABLE;           // 输出比较快速使能禁止(仅在 PWM1 和 PWM2 可设置)
+    sConfig.OCIdleState = TIM_OCIDLESTATE_SET;         // 空闲状态输出高电平（蜂鸣器静音）
+    sConfig.OCNIdleState = TIM_OCNIDLESTATE_RESET;
     sConfig.Pulse = (1000000 / freq - 1) * duty / 100; // 在 PWM1 模式占空比
 
     HAL_TIM_PWM_ConfigChannel(g_HPWM_PassiveBuzzer, &sConfig, TIM_CHANNEL_1);

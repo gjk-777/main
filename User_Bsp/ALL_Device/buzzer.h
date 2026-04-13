@@ -41,8 +41,7 @@ void PassiveBuzzer_Test(void);
 
 void Fire_Alarm_Set(bool enable);
 void Fire_Alarm_Process(void);
-#include "stdbool.h"
-void Beep_GPIO_Init();
+void Beep_GPIO_Init(void);
 void Beep_OnOff(bool on);
 extern bool beep_status;
 

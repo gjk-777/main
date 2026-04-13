@@ -3,6 +3,7 @@
 #include "OLED_Data.h"
 #include "stm32f1xx_hal.h"
 #include "rtc.h"
+#include "led.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -77,6 +78,7 @@ void ESP_link_imag()
 static char buf_Data[20];
 void Data_Show(uint8_t *temp, uint8_t *humi, float *smoke, float *co)
 {
+    /* 第一行：温度和湿度 */
     OLED_ShowChinese(0, 0, "温度");
     OLED_ShowChar(32, 0, ':', OLED_8X16);
     OLED_ShowNum(40, 0, *temp, 2, OLED_8X16);
@@ -87,17 +89,28 @@ void Data_Show(uint8_t *temp, uint8_t *humi, float *smoke, float *co)
     OLED_ShowNum(104, 0, *humi, 2, OLED_8X16);
     OLED_ShowChar(120, 0, '%', OLED_8X16);
 
+    /* 第二行：烟雾浓度和CO浓度 */
     OLED_ShowChinese(0, 16, "烟雾");
     OLED_ShowChar(32, 16, ':', OLED_8X16);
     sprintf(buf_Data, "%.2f%%", *smoke);
     OLED_ShowString(40, 16, buf_Data, OLED_8X16);
 
-    OLED_ShowString(0, 32, "CO", OLED_8X16);
-    OLED_ShowChar(16, 32, ':', OLED_8X16);
+    OLED_ShowChinese(0, 32, "甲烷");
+    OLED_ShowChar(32, 32, ':', OLED_8X16);
+    sprintf(buf_Data, "%.1fppm", *co);
+    OLED_ShowString(40, 32, buf_Data, OLED_8X16);
 
-    sprintf(buf_Data, "%.1fppm  ", *co);
-    OLED_ShowString(24, 32, buf_Data, OLED_8X16);
-    OLED_ShowString(0, 48, "                ", OLED_8X16);
+    /* 第三行：火灾状态显示 */
+    OLED_ShowChinese(0, 48, "火灾");
+    OLED_ShowChar(32, 48, ':', OLED_8X16);
+    if (fire_status)
+    {
+        OLED_ShowChinese(40, 48, "有");
+    }
+    else
+    {
+        OLED_ShowChinese(40, 48, "无");
+    }
 }
 
 static void OLED_LowRAM_Transition(uint8_t mode, uint8_t *temp, uint8_t *humi, float *smoke, float *co)
