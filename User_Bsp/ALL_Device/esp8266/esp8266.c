@@ -106,6 +106,8 @@ _Bool fa_Connect_WaitRecive(void)
 			error_num++;
 			if (error_num > 3)
 			{
+				error_num = 0;
+				ESP8266_Clear1_2();
 				vTaskResume(xEspLinkTaskHandle); // 12.1注释掉了，后面打开
 			}
 		}

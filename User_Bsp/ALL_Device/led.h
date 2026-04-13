@@ -14,6 +14,10 @@ void Led_Set(_Bool status);
 #define Bsp_LedON() HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin, GPIO_PIN_RESET)
 #define Bsp_LedOFF() HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin, GPIO_PIN_SET)
 #define Bsp_LedToggle() HAL_GPIO_TogglePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin)
+
+#define Led_BeepON() HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, LED_Beep_Pin, GPIO_PIN_RESET)
+#define Led_BeepOFF() HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, LED_Beep_Pin, GPIO_PIN_SET)
+#define Led_BeepToggle() HAL_GPIO_TogglePin(Bsp_Led_GPIO_Port, LED_Beep_Pin)
 void Get_Fire_State(void);
 void Body_State(void);
 

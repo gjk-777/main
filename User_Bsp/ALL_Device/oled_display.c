@@ -100,7 +100,7 @@ void Data_Show(uint8_t *temp, uint8_t *humi, float *smoke, float *co)
     sprintf(buf_Data, "%.1fppm", *co);
     OLED_ShowString(40, 32, buf_Data, OLED_8X16);
 
-    /* 第三行：火灾状态显示 */
+    /* 第四行：火灾状态和人体状态显示 */
     OLED_ShowChinese(0, 48, "火灾");
     OLED_ShowChar(32, 48, ':', OLED_8X16);
     if (fire_status)
@@ -110,6 +110,18 @@ void Data_Show(uint8_t *temp, uint8_t *humi, float *smoke, float *co)
     else
     {
         OLED_ShowChinese(40, 48, "无");
+    }
+
+    /* 人体状态显示（在火灾后面） */
+    OLED_ShowChinese(56, 48, "人体");
+    OLED_ShowChar(88, 48, ':', OLED_8X16);
+    if (body_status)
+    {
+        OLED_ShowChinese(96, 48, "有");
+    }
+    else
+    {
+        OLED_ShowChinese(96, 48, "无");
     }
 }
 

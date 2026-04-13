@@ -36,10 +36,16 @@ void Hardware_Led_Control(uint8_t channel, bool onOff)
         }
         break;
 
-    case 2:
-        // 可以添加更多LED通道的控制
-        // 例如：
-        // HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, onOff ? GPIO_PIN_RESET : GPIO_PIN_SET);
+    case 1:
+        // 控制Bsp_Led LED
+        if (onOff)
+        {
+            Led_BeepON(); // 打开LED
+        }
+        else
+        {
+            Led_BeepOFF(); // 关闭LED
+        }
         break;
     default:
         break;
@@ -50,7 +56,7 @@ void Hardware_Led_Control(uint8_t channel, bool onOff)
 void LED_Manager_Init(void)
 {
     // 初始化LED管理器，设置有2个LED通道，并传递硬件控制函数
-    LedManager_Init(1, Hardware_Led_Control);
+    LedManager_Init(2, Hardware_Led_Control);
 }
 
 // 使用LED管理器控制LED示例

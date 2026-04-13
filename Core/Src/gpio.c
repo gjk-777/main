@@ -54,8 +54,8 @@ void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LED_Beep_Pin|Fan_Pin_Pin|ZhaoMing_LED_Pin|SCL_PB8_Pin
-                          |SDA_PB9_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1|GPIO_PIN_12|LED_Beep_Pin|Fan_Pin_Pin
+                          |ZhaoMing_LED_Pin|SCL_PB8_Pin|SDA_PB9_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(DHT11_PA11_GPIO_Port, DHT11_PA11_Pin, GPIO_PIN_RESET);
@@ -85,17 +85,19 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(Fire_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : PB1 PB12 LED_Beep_Pin Fan_Pin_Pin
+                           ZhaoMing_LED_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_12|LED_Beep_Pin|Fan_Pin_Pin
+                          |ZhaoMing_LED_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
   /*Configure GPIO pins : Key1_Pin Key2_Pin */
   GPIO_InitStruct.Pin = Key1_Pin|Key2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : LED_Beep_Pin Fan_Pin_Pin ZhaoMing_LED_Pin */
-  GPIO_InitStruct.Pin = LED_Beep_Pin|Fan_Pin_Pin|ZhaoMing_LED_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : DHT11_PA11_Pin */

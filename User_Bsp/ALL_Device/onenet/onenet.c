@@ -62,6 +62,7 @@ extern uint8_t humi;
 extern uint8_t temp;
 extern bool cooking_status;
 extern bool fan_status;
+extern bool body_status; // 人体活动状态
 extern uint8_t window_angle_status;
 extern uint8_t famen_angle_status;
 
@@ -332,20 +333,22 @@ unsigned char OneNet_FillBuf(char *buf)
 		sprintf(text, "\"Fire\":{\"value\":%s},", fire_status ? "true" : "false");
 		strcat(buf, text);
 		memset(text, 0, sizeof(text));
+		sprintf(text, "\"Body\":{\"value\":%s},", body_status ? "true" : "false");
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
 		sprintf(text, "\"Cooking\":{\"value\":%s},", cooking_status ? "true" : "false");
 		strcat(buf, text);
-		memset(text, 0, sizeof(text));
-		sprintf(text, "\"Window\":{\"value\":%d},", window_angle_status);
-		strcat(buf, text);
-
 	}
-			memset(text, 0, sizeof(text));
-		sprintf(text, "\"fan\":{\"value\":%s},", fan_status ? "true" : "false");
-		strcat(buf, text);
+	memset(text, 0, sizeof(text));
+	sprintf(text, "\"Window\":{\"value\":%d},", window_angle_status);
+	strcat(buf, text);
+	memset(text, 0, sizeof(text));
+	sprintf(text, "\"fan\":{\"value\":%s},", fan_status ? "true" : "false");
+	strcat(buf, text);
 
-		memset(text, 0, sizeof(text));
-		sprintf(text, "\"famen\":{\"value\":%d}", famen_angle_status);
-		strcat(buf, text);
+	memset(text, 0, sizeof(text));
+	sprintf(text, "\"famen\":{\"value\":%d}", famen_angle_status);
+	strcat(buf, text);
 
 	strcat(buf, "}}");
 
@@ -471,21 +474,9 @@ void OneNET_Subscribe(void)
 //	说明：
 //==========================================================
 
-char led11[15] = "\"led\":true";
-char led12[15] = "\"led\":false";
 
-char led21[15] = "\"led2\":true";
-char led22[15] = "\"led2\":false";
 
-char led31[15] = "\"led3\":true";
-char led32[15] = "\"led3\":false";
 
-char led41[15] = "\"switch1\":true";
-char led42[17] = "\"switch1\":false";
-
-char she[10] = "shehumi";
-uint8_t she_num, she_zhi, she_wei = 0;
-char *zanshi = NULL;
 
 static char *req_payload = NULL;
 static char *cmdid_topic = NULL;
@@ -661,9 +652,11 @@ void OneNet_RevPro(unsigned char *cmd)
 					if (beep_json != NULL)
 					{
 						extern void PassiveBuzzer_Control(int on);
+						extern bool beep_status;  // 蜂鸣器状态变量
 						if (OneNet_ParseBool(beep_json, &bool_value))
 						{
 							PassiveBuzzer_Control(bool_value ? 1 : 0);
+							beep_status = bool_value;  // 同步更新蜂鸣器状态
 							has_valid_param = 1;
 							Uart_printf(USART_DEBUG, "Beep %s\r\n", bool_value ? "ON" : "OFF");
 						}
