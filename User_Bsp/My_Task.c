@@ -11,7 +11,7 @@
 #include "buzzer.h"
 extern bool fire_status;
 extern bool cooking_status;
-extern bool beep_status;  // 蜂鸣器状态（需要在报警时同步更新）
+extern bool beep_status; // 蜂鸣器状态（需要在报警时同步更新）
 #include "dht11.h"
 #include "usart.h"
 #include "string.h"
@@ -61,21 +61,23 @@ EventGroupHandle_t xAlarmEvent = NULL;
 #define EVENT_ALL_BITS (EVENT_TEMP_BITS | EVENT_MQ2_BITS | EVENT_CO_MQ7_BITS | EVENT_FIRE_BITS | EVENT_BODY_BITS)
 
 /* Kitchen safety application policy (application-layer only). */
-#define APP_DATA_UPLOAD_PERIOD_MS 1000
+#define APP_DATA_UPLOAD_PERIOD_MS 2000
 #define APP_SENSOR_SCAN_PERIOD_MS 500
-#define APP_TEMP_ALARM_C 32
 
-/* 有人时的阈值（正常灵敏度） */
-#define APP_MQ2_BODY_PRESENT_THRESHOLD 10.0f /* 有人时烟雾阈值 */
-#define APP_CO_BODY_PRESENT_THRESHOLD 200.0f /* 有人时甲烷阈值 */
-
-/* 无人时的阈值（降低灵敏度，减少误报） */
-#define APP_MQ2_BODY_ABSENT_THRESHOLD 25.0f /* 无人时烟雾阈值 */
-#define APP_CO_BODY_ABSENT_THRESHOLD 100.0f /* 无人时甲烷阈值 */
-
-/* 做饭模式阈值 */
+/* 做饭模式阈值：温度>50℃, 甲烷>200ppm, 烟雾>20% */
+#define APP_TEMP_COOKING_THRESHOLD 50
+#define APP_CO_COOKING_THRESHOLD 200.0f
 #define APP_MQ2_COOKING_THRESHOLD 20.0f
-#define APP_CO_COOKING_THRESHOLD 50.0f
+
+/* 有人模式阈值：温度>40℃, 甲烷>150ppm, 烟雾>20% */
+#define APP_TEMP_BODY_PRESENT_THRESHOLD 40
+#define APP_CO_BODY_PRESENT_THRESHOLD 150.0f
+#define APP_MQ2_BODY_PRESENT_THRESHOLD 20.0f
+
+/* 无人模式阈值：温度>30℃, 甲烷>100ppm, 烟雾>10% */
+#define APP_TEMP_BODY_ABSENT_THRESHOLD 30
+#define APP_CO_BODY_ABSENT_THRESHOLD 100.0f
+#define APP_MQ2_BODY_ABSENT_THRESHOLD 10.0f
 
 static void Name_Show()
 {
@@ -91,8 +93,7 @@ static void Name_Show()
 void My_Led_Task(void *pvParameters)
 {
     (void)pvParameters;
-    vTaskDelay(15 * 1000);
-    Servo_angle(0);
+    /* 上电后不再强制归零，由Window_Flash_Init()/Famen_Flash_Init()从Flash恢复角度 */
     while (1)
     {
         vTaskDelay(1000);
@@ -180,6 +181,7 @@ void EspLink_Task(void *pvParameters)
             vTaskDelay(1000);
             continue;
         }
+        OneNet_SendData();
         LedManager_SetLed_OnOff(0, false);
         OLED_Clear();
         vTaskSuspend(NULL); // 挂起本任务
@@ -240,56 +242,63 @@ void Sensor_Task(void *pvParameters)
                 xEventGroupSetBits(xAlarmEvent, EVENT_BODY_BITS);
             }
 
-            /* 5. 温度异常检测（有人时才报警） */
-            if (temp > APP_TEMP_ALARM_C)
-            {
-                if (body_status)
-                {
-                    printf("[报警] 温度异常：%d℃（有人在场）\r\n", temp);
-                    xEventGroupSetBits(xAlarmEvent, EVENT_TEMP_BITS);
-                }
-                else
-                {
-                    printf("[提示] 温度异常：%d℃（无人，不报警）\r\n", temp);
-                }
-            }
-
-            /* 6. 根据人体状态和做饭模式确定阈值 */
+            /* 5. 根据人体状态和做饭模式确定阈值 */
+            uint8_t temp_threshold;
             float mq2_threshold;
             float co_threshold;
 
             if (cooking_status)
             {
                 /* 做饭模式：使用做饭阈值 */
+                temp_threshold = APP_TEMP_COOKING_THRESHOLD;
                 mq2_threshold = APP_MQ2_COOKING_THRESHOLD;
                 co_threshold = APP_CO_COOKING_THRESHOLD;
             }
             else if (body_status)
             {
                 /* 有人：正常灵敏度阈值 */
+                temp_threshold = APP_TEMP_BODY_PRESENT_THRESHOLD;
                 mq2_threshold = APP_MQ2_BODY_PRESENT_THRESHOLD;
                 co_threshold = APP_CO_BODY_PRESENT_THRESHOLD;
             }
             else
             {
                 /* 无人：降低灵敏度阈值，减少误报 */
+                temp_threshold = APP_TEMP_BODY_ABSENT_THRESHOLD;
                 mq2_threshold = APP_MQ2_BODY_ABSENT_THRESHOLD;
                 co_threshold = APP_CO_BODY_ABSENT_THRESHOLD;
+            }
+
+            /* 6. 温度异常检测（有人时才报警） */
+            if (temp > temp_threshold)
+            {
+                if (body_status || cooking_status)
+                {
+                    printf("[报警] 温度异常：%d℃ (阈值: %d℃, %s)\r\n",
+                           temp, temp_threshold, cooking_status ? "做饭模式" : "有人在场");
+                    xEventGroupSetBits(xAlarmEvent, EVENT_TEMP_BITS);
+                }
+                else
+                {
+                    printf("[提示] 温度异常：%d℃ (阈值: %d℃, 无人，不报警)\r\n", temp, temp_threshold);
+                }
             }
 
             /* 7. 烟雾浓度检测 */
             if (adc_mq2 > mq2_threshold)
             {
+                const char *mode_str = cooking_status ? "做饭模式" : (body_status ? "有人" : "无人");
                 printf("[报警] 烟雾浓度异常：%.2f%% (阈值: %.0f%%, %s)\r\n",
-                       adc_mq2, mq2_threshold, body_status ? "有人" : "无人");
+                       adc_mq2, mq2_threshold, mode_str);
                 xEventGroupSetBits(xAlarmEvent, EVENT_MQ2_BITS);
             }
 
             /* 8. 甲烷浓度检测 */
             if (adc_CO_MQ7 > co_threshold)
             {
+                const char *mode_str = cooking_status ? "做饭模式" : (body_status ? "有人" : "无人");
                 printf("[报警] 甲烷浓度异常：%.2fppm (阈值: %.0fppm, %s)\r\n",
-                       adc_CO_MQ7, co_threshold, body_status ? "有人" : "无人");
+                       adc_CO_MQ7, co_threshold, mode_str);
                 xEventGroupSetBits(xAlarmEvent, EVENT_CO_MQ7_BITS);
             }
 
@@ -317,13 +326,17 @@ void Sensor_Task(void *pvParameters)
  * @param cycles 报警循环次数
  * @note 模拟110报警：急促的"滴-滴-滴"断续音，频率约800-1200Hz
  */
+/**
+ * @brief 110报警声音模式 - 浓度超标报警
+ * @param cycles 报警循环次数
+ * @note 报警灯由led_manager通道1异步闪烁管理，此处仅控制蜂鸣器
+ */
 static void Alarm_110_Sound(uint8_t cycles)
 {
     for (uint8_t i = 0; i < cycles; i++)
     {
         /* 滴 - 高音 */
         PassiveBuzzer_Set_Freq_Duty(1000, 50);
-        Led_BeepON();
         vTaskDelay(100);
         /* 静音间隙 */
         PassiveBuzzer_Control(0);
@@ -339,7 +352,6 @@ static void Alarm_110_Sound(uint8_t cycles)
         vTaskDelay(100);
         /* 长间隙 */
         PassiveBuzzer_Control(0);
-        Led_BeepOFF();
         vTaskDelay(300);
     }
 }
@@ -349,6 +361,11 @@ static void Alarm_110_Sound(uint8_t cycles)
  * @param cycles 报警循环次数
  * @note 火警频率：连续的渐变音，表示紧急情况
  */
+/**
+ * @brief 火警报警声音模式
+ * @param cycles 报警循环次数
+ * @note 报警灯由led_manager通道1异步闪烁管理，此处仅控制蜂鸣器
+ */
 static void Alarm_Fire_Sound(uint8_t cycles)
 {
     for (uint8_t i = 0; i < cycles; i++)
@@ -357,14 +374,12 @@ static void Alarm_Fire_Sound(uint8_t cycles)
         for (uint16_t freq = 600; freq <= 1200; freq += 50)
         {
             PassiveBuzzer_Set_Freq_Duty(freq, 50);
-            Led_BeepON();
             vTaskDelay(20);
         }
         /* 频率下降阶段 */
         for (uint16_t freq = 1200; freq >= 600; freq -= 50)
         {
             PassiveBuzzer_Set_Freq_Duty(freq, 50);
-            Led_BeepOFF();
             vTaskDelay(20);
         }
     }
@@ -389,29 +404,32 @@ void Alarm_Process_Task(void *pvParameters)
         beep_status = true;
         printf("[报警] 蜂鸣器状态已同步到APP: ON\r\n");
 
-        /* 火警报警 - 最高优先级，使用渐变频率 */
+        /* 火警报警 - 最高优先级，使用渐变频率，报警灯急闪 */
         if (bits & EVENT_FIRE_BITS)
         {
             printf("[报警] 火警触发！执行火警频率报警\r\n");
+            LedManager_SetLed_Blink(1, 100, 3, 3); /* 通道1报警灯急闪: 300ms亮+300ms灭 */
             Alarm_Fire_Sound(5);
         }
-        /* 浓度超标报警 - MQ2烟雾 */
+        /* 浓度超标报警 - MQ2烟雾，报警灯快闪 */
         else if (bits & EVENT_MQ2_BITS)
         {
             printf("[报警] 烟雾浓度超标！执行110声音报警\r\n");
+            LedManager_SetLed_Blink(1, 100, 5, 5); /* 通道1报警灯快闪: 500ms亮+500ms灭 */
             Alarm_110_Sound(3);
         }
-        /* 浓度超标报警 - CO甲烷 */
+        /* 浓度超标报警 - CO甲烷，报警灯快闪 */
         else if (bits & EVENT_CO_MQ7_BITS)
         {
             printf("[报警] 甲烷浓度超标！执行110声音报警\r\n");
+            LedManager_SetLed_Blink(1, 100, 5, 5); /* 通道1报警灯快闪: 500ms亮+500ms灭 */
             Alarm_110_Sound(3);
         }
-        /* 温度异常报警 */
+        /* 温度异常报警，报警灯慢闪 */
         else if (bits & EVENT_TEMP_BITS)
         {
             printf("[报警] 温度异常！执行温度报警\r\n");
-            Led_BeepON();
+            LedManager_SetLed_Blink(1, 100, 8, 8); /* 通道1报警灯慢闪: 800ms亮+800ms灭 */
             for (int i = 0; i < 4; i++)
             {
                 PassiveBuzzer_Set_Freq_Duty(1000, 50);
@@ -419,16 +437,15 @@ void Alarm_Process_Task(void *pvParameters)
                 PassiveBuzzer_Set_Freq_Duty(600, 50);
                 vTaskDelay(150);
             }
-            Led_BeepOFF();
         }
-        /* 报警结束：关闭蜂鸣器和LED，恢复静默状态 */
+        /* 报警结束：关闭蜂鸣器，停止报警灯闪烁并熄灭 */
         PassiveBuzzer_Control(0);
-        Led_BeepOFF();
-        
+        LedManager_SetLed_OnOff(1, false); /* 停止通道1闪烁并关闭报警灯 */
+
         /* 报警结束：设置蜂鸣器状态为关闭，同步到APP */
         beep_status = false;
         printf("[报警] 蜂鸣器状态已同步到APP: OFF\r\n");
-        
+
         vTaskDelay(500);
     }
 }
@@ -439,16 +456,6 @@ void Key_Get_Task(void *pvParameters)
 
     for (;;)
     {
-        // 为了原子性操作，不被其他任务干扰
-        // taskENTER_CRITICAL();
-        // ButtonHandler();
-        // taskEXIT_CRITICAL();
-
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_SET);
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
-        vTaskDelay(pdMS_TO_TICKS(2000));
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
-        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);
         vTaskDelay(pdMS_TO_TICKS(2000));
     }
 }
@@ -491,6 +498,8 @@ void My_Drivers_Init(void)
     LED_Manager_Init();
     /*联网灯光//亮灭闪烁*/
     LedManager_SetLed_PulseS(0, 10, 10, 5);
+    /* 上电关闭风扇PB15（gpio.c初始化为RESET低电平=开启，需显式关闭） */
+    FanMotor_OFF();
 
     HAL_TIM_Base_Start_IT(&htim2);
     //  HAL_TIM_Base_Start(&htim1);
@@ -505,13 +514,13 @@ void My_Drivers_Init(void)
     OLED_Clear();
     HAL_ADC_Start(&hadc1);
     HAL_ADC_Start(&hadc2);
-    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); // PWM_1
-    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // PWM_2
 
     // 从Flash加载窗口属性并恢复PWM设置
     Window_Flash_Init();
     // 从Flash加载阀门属性并恢复PWM设置
     Famen_Flash_Init();
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1); // PWM_1
+    HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2); // PWM_2
     // __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 2000);
 
     MyRTC_SetTime(); // 设置时间

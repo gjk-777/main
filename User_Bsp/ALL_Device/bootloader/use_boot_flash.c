@@ -5,6 +5,7 @@
 #include "event_groups.h"
 
 #include "stdio.h"
+#include "stddef.h"
 #include "usart.h"
 
 //enum
@@ -296,7 +297,7 @@ WindowFlashStatus_t Window_Flash_Save(uint8_t angle)
     }
 
     // 构建数据结构
-    WindowData_t windowData;
+    WindowData_t windowData = {0};
     windowData.magic = WINDOW_DATA_MAGIC;
     windowData.window_angle = angle;
     windowData.reserved[0] = 0;
@@ -305,7 +306,7 @@ WindowFlashStatus_t Window_Flash_Save(uint8_t angle)
     
     // 计算校验和(不包括checksum字段本身)
     windowData.checksum = Window_CalculateChecksum((uint8_t *)&windowData, 
-                                                    sizeof(WindowData_t) - sizeof(uint16_t));
+                                                    offsetof(WindowData_t, checksum));
 
     // 解锁Flash
     Window_Flash_Unlock();
@@ -368,7 +369,7 @@ WindowFlashStatus_t Window_Flash_Load(uint8_t *angle)
 
     // 计算并验证校验和
     uint16_t calcChecksum = Window_CalculateChecksum((uint8_t *)windowData, 
-                                                      sizeof(WindowData_t) - sizeof(uint16_t));
+                                                      offsetof(WindowData_t, checksum));
     if (calcChecksum != windowData->checksum)
     {
         printf("[Window Flash] Checksum mismatch: calc=0x%04X, stored=0x%04X\r\n", 
@@ -405,16 +406,16 @@ void Window_Flash_Init(void)
 
     if (status == WINDOW_FLASH_OK)
     {
-        // 数据有效，恢复窗户角度
+        // 数据有效，恢复窗户角度（不再重复写Flash，Flash中已有正确值）
         printf("[Window Flash] Restoring angle: %d\r\n", angle);
-        Servo_angle(angle);
+        Servo_angle_ex(angle, false);
     }
     else
     {
-        // 数据无效，使用默认值并保存
+        // 数据无效(首次上电或Flash损坏)，使用默认值0
         printf("[Window Flash] Using default angle: 0\r\n");
-        Servo_angle(0);
-        Window_Flash_Save(0);
+        Servo_angle_ex(0, false);
+        Window_Flash_Save(0); // 仅此处写一次Flash
     }
 }
 
@@ -438,7 +439,7 @@ WindowFlashStatus_t Famen_Flash_Save(uint8_t angle)
     }
 
     // 构建数据结构
-    FamenData_t famenData;
+    FamenData_t famenData = {0};
     famenData.magic = FAMEN_DATA_MAGIC;
     famenData.famen_angle = angle;
     famenData.reserved[0] = 0;
@@ -447,7 +448,7 @@ WindowFlashStatus_t Famen_Flash_Save(uint8_t angle)
 
     // 计算校验和(不包括checksum字段本身)
     famenData.checksum = Window_CalculateChecksum((uint8_t *)&famenData,
-                                                   sizeof(FamenData_t) - sizeof(uint16_t));
+                                                   offsetof(FamenData_t, checksum));
 
     // 解锁Flash
     Window_Flash_Unlock();
@@ -502,7 +503,7 @@ WindowFlashStatus_t Famen_Flash_Load(uint8_t *angle)
 
     // 计算并验证校验和
     uint16_t calcChecksum = Window_CalculateChecksum((uint8_t *)famenData,
-                                                      sizeof(FamenData_t) - sizeof(uint16_t));
+                                                      offsetof(FamenData_t, checksum));
     if (calcChecksum != famenData->checksum)
     {
         printf("[Famen Flash] Checksum mismatch: calc=0x%04X, stored=0x%04X\r\n",
@@ -532,16 +533,16 @@ void Famen_Flash_Init(void)
 
     if (status == WINDOW_FLASH_OK)
     {
-        // 数据有效，恢复阀门角度
+        // 数据有效，恢复阀门角度（不再重复写Flash，Flash中已有正确值）
         printf("[Famen Flash] Restoring angle: %d\r\n", angle);
-        Famen_angle(angle);
+        Famen_angle_ex(angle, false);
     }
     else
     {
-        // 数据无效，使用默认值并保存
+        // 数据无效(首次上电或Flash损坏)，使用默认值0
         printf("[Famen Flash] Using default angle: 0\r\n");
-        Famen_angle(0);
-        Famen_Flash_Save(0);
+        Famen_angle_ex(0, false);
+        Famen_Flash_Save(0); // 仅此处写一次Flash
     }
 }
 

@@ -8,25 +8,41 @@ extern bool body_status;
 extern bool cooking_status;
 extern bool fan_status;
 extern uint8_t window_angle_status;
+
+/*
+ * 引脚功能映射:
+ *   PB14 (Fan_Pin_Pin)      -> 照明灯 (LED)
+ *   PB15 (ZhaoMing_LED_Pin) -> 风扇   (Fan)
+ *   PB13 (LED_Beep_Pin)     -> 报警灯 (Alarm LED, 由led_manager通道1管理)
+ *
+ * led_manager通道分配:
+ *   通道0: 照明灯 (PB14)
+ *   通道1: 报警灯 (PB13) - 支持闪烁
+ */
+
+/* 照明灯 PB14 */
+#define ZhaoMingLED_ON()   HAL_GPIO_WritePin(Fan_Pin_GPIO_Port, Fan_Pin_Pin, GPIO_PIN_RESET)
+#define ZhaoMingLED_OFF()  HAL_GPIO_WritePin(Fan_Pin_GPIO_Port, Fan_Pin_Pin, GPIO_PIN_SET)
+
+/* 风扇 PB15 */
+#define FanMotor_ON()      HAL_GPIO_WritePin(ZhaoMing_LED_GPIO_Port, ZhaoMing_LED_Pin, GPIO_PIN_RESET)
+#define FanMotor_OFF()     HAL_GPIO_WritePin(ZhaoMing_LED_GPIO_Port, ZhaoMing_LED_Pin, GPIO_PIN_SET)
+
+/* 报警灯 PB13 */
+#define AlarmLedON()       HAL_GPIO_WritePin(LED_Beep_GPIO_Port, LED_Beep_Pin, GPIO_PIN_RESET)
+#define AlarmLedOFF()      HAL_GPIO_WritePin(LED_Beep_GPIO_Port, LED_Beep_Pin, GPIO_PIN_SET)
+
 void Led_Set(_Bool status);
-// #define Led_SetStatus(X) HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin, (!X))
-
-#define Bsp_LedON() HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin, GPIO_PIN_RESET)
-#define Bsp_LedOFF() HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin, GPIO_PIN_SET)
-#define Bsp_LedToggle() HAL_GPIO_TogglePin(Bsp_Led_GPIO_Port, Bsp_Led_Pin)
-
-#define Led_BeepON() HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, LED_Beep_Pin, GPIO_PIN_RESET)
-#define Led_BeepOFF() HAL_GPIO_WritePin(Bsp_Led_GPIO_Port, LED_Beep_Pin, GPIO_PIN_SET)
-#define Led_BeepToggle() HAL_GPIO_TogglePin(Bsp_Led_GPIO_Port, LED_Beep_Pin)
+void Fan_Set(_Bool status);
 void Get_Fire_State(void);
 void Body_State(void);
 
 void ButtonHandler(void);
 
-// 初始化LED管理器示例
 void LED_Manager_Init(void);
-// 使用LED管理器控制LED示例
 void LED_Manager_Usage(void);
 void Servo_angle(uint8_t angle);
+void Servo_angle_ex(uint8_t angle, bool save);
 void Famen_angle(uint8_t angle);
+void Famen_angle_ex(uint8_t angle, bool save);
 #endif

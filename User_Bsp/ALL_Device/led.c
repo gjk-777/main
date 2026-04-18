@@ -4,58 +4,92 @@
 #include "tim.h"
 #include "buzzer.h"
 #include "use_boot_flash.h"
-bool led_status = false;
+
+bool led_status = false;   /* 照明灯状态 PB14 */
 bool fire_status = false;
 bool body_status = false;
 bool cooking_status = false;
-bool fan_status = false;
+bool fan_status = false;   /* 风扇状态 PB15 */
 uint8_t window_angle_status = 0;
 uint8_t famen_angle_status = 0;
+
+/**
+ * @brief 照明灯控制 PB14
+ * @param status true-开灯, false-关灯
+ *
+ * 执行流程:
+ * 1. 更新led_status全局状态变量
+ * 2. 通过led_manager通道0控制PB14引脚电平
+ *   - 低电平(RESET)=点亮, 高电平(SET)=熄灭
+ */
 void Led_Set(_Bool status)
 {
     led_status = status;
-    if (led_status)
-        Bsp_LedON();
-    else
-        Bsp_LedOFF();
+    LedManager_SetLed_OnOff(0, status); /* 通道0: 照明灯 */
 }
 
+/**
+ * @brief 风扇控制 PB15
+ * @param status true-开启, false-关闭
+ *
+ * 执行流程:
+ * 1. 更新fan_status全局状态变量
+ * 2. 直接控制PB15引脚电平
+ *   - 低电平(RESET)=开启, 高电平(SET)=关闭
+ */
+void Fan_Set(_Bool status)
+{
+    fan_status = status;
+    if (status)
+        FanMotor_ON();
+    else
+        FanMotor_OFF();
+}
+
+/**
+ * @brief led_manager硬件控制回调函数
+ * @param channel LED通道号
+ * @param onOff true-点亮, false-熄灭
+ *
+ * 通道分配:
+ *   通道0: 照明灯 PB14 (Fan_Pin)
+ *   通道1: 报警灯 PB13 (LED_Beep_Pin)
+ *
+ * 引脚电平: 低电平有效(点亮)
+ */
 void Hardware_Led_Control(uint8_t channel, bool onOff)
 {
     switch (channel)
     {
-    case 0:
-        // 控制Bsp_Led LED
+    case 0: /* 照明灯 PB14 */
         if (onOff)
-        {
-            Bsp_LedON(); // 打开LED
-        }
+            ZhaoMingLED_ON();
         else
-        {
-            Bsp_LedOFF(); // 关闭LED
-        }
+            ZhaoMingLED_OFF();
         break;
 
-    case 1:
-        // 控制Bsp_Led LED
+    case 1: /* 报警灯 PB13 */
         if (onOff)
-        {
-            Led_BeepON(); // 打开LED
-        }
+            AlarmLedON();
         else
-        {
-            Led_BeepOFF(); // 关闭LED
-        }
+            AlarmLedOFF();
         break;
+
     default:
         break;
     }
 }
 
-// 初始化LED管理器示例
+/**
+ * @brief 初始化LED管理器
+ *
+ * 执行流程:
+ * 1. 调用LedManager_Init注册2个LED通道和硬件控制回调
+ * 2. 通道0: 照明灯(PB14), 通道1: 报警灯(PB13)
+ * 3. 初始化后所有LED默认关闭
+ */
 void LED_Manager_Init(void)
 {
-    // 初始化LED管理器，设置有2个LED通道，并传递硬件控制函数
     LedManager_Init(2, Hardware_Led_Control);
 }
 
@@ -105,38 +139,70 @@ void Body_State(void)
     }
 }
 
-void Servo_angle(uint8_t angle)
+/**
+ * @brief 设置窗户角度（使用TIM3_CHANNEL_1）
+ * @param angle 窗户角度 (0-90度)
+ * @param save  是否保存到Flash（上电恢复时传false避免重复写入）
+ *
+ * 执行流程：
+ * 1. 参数校验，角度限制在0-90度
+ * 2. 计算PWM占空比值
+ * 3. 设置TIM3通道1的比较值
+ * 4. 根据save参数决定是否保存到Flash
+ */
+void Servo_angle_ex(uint8_t angle, bool save)
 {
     if (angle > 90)
-        angle = 90; // Clamp angle to 0-90
+        angle = 90;
     uint32_t compare_value = 500 + (angle * 2000 / 180);
     window_angle_status = angle;
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, compare_value);
 
-    // 保存窗口角度到Flash（实现掉电不丢失）
-    Window_Flash_Save(angle);
+    if (save)
+    {
+        Window_Flash_Save(angle);
+    }
+}
+
+/**
+ * @brief 设置窗户角度（兼容旧接口，默认保存Flash）
+ */
+void Servo_angle(uint8_t angle)
+{
+    Servo_angle_ex(angle, true);
 }
 
 /**
  * @brief 设置阀门角度（使用TIM3_CHANNEL_2）
  * @param angle 阀门角度 (0-90度)
+ * @param save  是否保存到Flash（上电恢复时传false避免重复写入）
  *
  * 执行流程：
  * 1. 参数校验，角度限制在0-90度
  * 2. 计算PWM占空比值
  * 3. 设置TIM3通道2的比较值
- * 4. 保存阀门角度到Flash（实现掉电不丢失）
+ * 4. 根据save参数决定是否保存到Flash
  */
-void Famen_angle(uint8_t angle)
+void Famen_angle_ex(uint8_t angle, bool save)
 {
     if (angle > 90)
-        angle = 90; // Clamp angle to 0-90
+        angle = 90;
     uint32_t compare_value = 500 + (angle * 2000 / 180);
     famen_angle_status = angle;
     __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, compare_value);
 
-    // 保存阀门角度到Flash（实现掉电不丢失）
-    Famen_Flash_Save(angle);
+    if (save)
+    {
+        Famen_Flash_Save(angle);
+    }
+}
+
+/**
+ * @brief 设置阀门角度（兼容旧接口，默认保存Flash）
+ */
+void Famen_angle(uint8_t angle)
+{
+    Famen_angle_ex(angle, true);
 }
 
 // void HandleSingleClick()

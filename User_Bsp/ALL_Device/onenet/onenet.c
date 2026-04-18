@@ -36,6 +36,7 @@
 // 硬件驱动
 #include "usart.h"
 #include "led.h"
+#include "led_manager.h"
 #include "buzzer.h"
 
 // RTOS
@@ -630,7 +631,7 @@ void OneNet_RevPro(unsigned char *cmd)
 							has_invalid_param = 1;
 					}
 
-					// 解析 LED
+					// 解析 LED（照明灯 PB14，通过led_manager通道0控制）
 					cJSON *led_json = cJSON_GetObjectItem(params_json, "LED");
 					if (led_json != NULL)
 					{
@@ -639,7 +640,23 @@ void OneNet_RevPro(unsigned char *cmd)
 						{
 							Led_Set(bool_value);
 							has_valid_param = 1;
-							Uart_printf(USART_DEBUG, "LED %s\r\n", bool_value ? "ON" : "OFF");
+							Uart_printf(USART_DEBUG, "LED(照明灯) %s\r\n", bool_value ? "ON" : "OFF");
+						}
+						else
+						{
+							has_invalid_param = 1;
+						}
+					}
+
+					// 解析 fan（风扇 PB15）
+					cJSON *fan_json = cJSON_GetObjectItem(params_json, "fan");
+					if (fan_json != NULL)
+					{
+						if (OneNet_ParseBool(fan_json, &bool_value))
+						{
+							Fan_Set(bool_value);
+							has_valid_param = 1;
+							Uart_printf(USART_DEBUG, "Fan(风扇) %s\r\n", bool_value ? "ON" : "OFF");
 						}
 						else
 						{
