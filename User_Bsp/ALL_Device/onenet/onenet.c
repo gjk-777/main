@@ -339,13 +339,13 @@ unsigned char OneNet_FillBuf(char *buf)
 		memset(text, 0, sizeof(text));
 		sprintf(text, "\"Cooking\":{\"value\":%s},", cooking_status ? "true" : "false");
 		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"Window\":{\"value\":%d},", window_angle_status);
+		strcat(buf, text);
+		memset(text, 0, sizeof(text));
+		sprintf(text, "\"fan\":{\"value\":%s},", fan_status ? "true" : "false");
+		strcat(buf, text);
 	}
-	memset(text, 0, sizeof(text));
-	sprintf(text, "\"Window\":{\"value\":%d},", window_angle_status);
-	strcat(buf, text);
-	memset(text, 0, sizeof(text));
-	sprintf(text, "\"fan\":{\"value\":%s},", fan_status ? "true" : "false");
-	strcat(buf, text);
 
 	memset(text, 0, sizeof(text));
 	sprintf(text, "\"famen\":{\"value\":%d}", famen_angle_status);
@@ -474,10 +474,6 @@ void OneNET_Subscribe(void)
 //
 //	说明：
 //==========================================================
-
-
-
-
 
 static char *req_payload = NULL;
 static char *cmdid_topic = NULL;
@@ -669,11 +665,11 @@ void OneNet_RevPro(unsigned char *cmd)
 					if (beep_json != NULL)
 					{
 						extern void PassiveBuzzer_Control(int on);
-						extern bool beep_status;  // 蜂鸣器状态变量
+						extern bool beep_status; // 蜂鸣器状态变量
 						if (OneNet_ParseBool(beep_json, &bool_value))
 						{
 							PassiveBuzzer_Control(bool_value ? 1 : 0);
-							beep_status = bool_value;  // 同步更新蜂鸣器状态
+							beep_status = bool_value; // 同步更新蜂鸣器状态
 							has_valid_param = 1;
 							Uart_printf(USART_DEBUG, "Beep %s\r\n", bool_value ? "ON" : "OFF");
 						}

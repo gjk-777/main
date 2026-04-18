@@ -92,11 +92,13 @@ void Data_Show(uint8_t *temp, uint8_t *humi, float *smoke, float *co)
     /* 第二行：烟雾浓度和CO浓度 */
     OLED_ShowChinese(0, 16, "烟雾");
     OLED_ShowChar(32, 16, ':', OLED_8X16);
+    OLED_ShowString(40, 16, "        ", OLED_8X16);  /* 先清空旧数据区域，防残留 */
     sprintf(buf_Data, "%.2f%%", *smoke);
     OLED_ShowString(40, 16, buf_Data, OLED_8X16);
 
     OLED_ShowChinese(0, 32, "甲烷");
     OLED_ShowChar(32, 32, ':', OLED_8X16);
+    OLED_ShowString(40, 32, "          ", OLED_8X16); /* 先清空旧数据区域，防残留 */
     sprintf(buf_Data, "%.1fppm", *co);
     OLED_ShowString(40, 32, buf_Data, OLED_8X16);
 

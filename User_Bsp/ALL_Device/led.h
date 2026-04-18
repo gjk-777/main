@@ -8,6 +8,7 @@ extern bool body_status;
 extern bool cooking_status;
 extern bool fan_status;
 extern uint8_t window_angle_status;
+extern uint8_t famen_angle_status;
 
 /*
  * 引脚功能映射:
@@ -21,16 +22,16 @@ extern uint8_t window_angle_status;
  */
 
 /* 照明灯 PB14 */
-#define ZhaoMingLED_ON()   HAL_GPIO_WritePin(Fan_Pin_GPIO_Port, Fan_Pin_Pin, GPIO_PIN_RESET)
-#define ZhaoMingLED_OFF()  HAL_GPIO_WritePin(Fan_Pin_GPIO_Port, Fan_Pin_Pin, GPIO_PIN_SET)
+#define ZhaoMingLED_ON() HAL_GPIO_WritePin(Fan_Pin_GPIO_Port, Fan_Pin_Pin, GPIO_PIN_RESET)
+#define ZhaoMingLED_OFF() HAL_GPIO_WritePin(Fan_Pin_GPIO_Port, Fan_Pin_Pin, GPIO_PIN_SET)
 
 /* 风扇 PB15 */
-#define FanMotor_ON()      HAL_GPIO_WritePin(ZhaoMing_LED_GPIO_Port, ZhaoMing_LED_Pin, GPIO_PIN_RESET)
-#define FanMotor_OFF()     HAL_GPIO_WritePin(ZhaoMing_LED_GPIO_Port, ZhaoMing_LED_Pin, GPIO_PIN_SET)
+#define FanMotor_ON() HAL_GPIO_WritePin(ZhaoMing_LED_GPIO_Port, ZhaoMing_LED_Pin, GPIO_PIN_RESET)
+#define FanMotor_OFF() HAL_GPIO_WritePin(ZhaoMing_LED_GPIO_Port, ZhaoMing_LED_Pin, GPIO_PIN_SET)
 
 /* 报警灯 PB13 */
-#define AlarmLedON()       HAL_GPIO_WritePin(LED_Beep_GPIO_Port, LED_Beep_Pin, GPIO_PIN_RESET)
-#define AlarmLedOFF()      HAL_GPIO_WritePin(LED_Beep_GPIO_Port, LED_Beep_Pin, GPIO_PIN_SET)
+#define AlarmLedOFF() HAL_GPIO_WritePin(LED_Beep_GPIO_Port, LED_Beep_Pin, GPIO_PIN_RESET)
+#define AlarmLedON() HAL_GPIO_WritePin(LED_Beep_GPIO_Port, LED_Beep_Pin, GPIO_PIN_SET)
 
 void Led_Set(_Bool status);
 void Fan_Set(_Bool status);

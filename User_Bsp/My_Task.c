@@ -9,6 +9,7 @@
 #include "led_manager.h"
 #include "oled_display.h"
 #include "buzzer.h"
+extern bool fan_status;
 extern bool fire_status;
 extern bool cooking_status;
 extern bool beep_status; // 蜂鸣器状态（需要在报警时同步更新）
@@ -78,6 +79,200 @@ EventGroupHandle_t xAlarmEvent = NULL;
 #define APP_TEMP_BODY_ABSENT_THRESHOLD 30
 #define APP_CO_BODY_ABSENT_THRESHOLD 100.0f
 #define APP_MQ2_BODY_ABSENT_THRESHOLD 10.0f
+
+#define APP_WINDOW_TEMP_SAFE_ANGLE 60
+#define APP_WINDOW_DANGER_SAFE_ANGLE 90
+#define APP_FAMEN_CLOSE_ANGLE 0
+
+typedef enum
+{
+    APP_ALARM_LED_OFF = 0,
+    APP_ALARM_LED_TEMP,
+    APP_ALARM_LED_CO,
+    APP_ALARM_LED_MQ2,
+    APP_ALARM_LED_FIRE,
+} AppAlarmLedMode_t;
+
+static void App_SetBuzzerSafe(bool enable)
+{
+    if (beep_status == enable)
+    {
+        return;
+    }
+
+    if (enable)
+    {
+        PassiveBuzzer_Set_Freq_Duty(1000, 50);
+    }
+    else
+    {
+        PassiveBuzzer_Control(0);
+    }
+
+    beep_status = enable;
+    printf("[Control] Buzzer %s\r\n", enable ? "ON" : "OFF");
+}
+
+static void App_SetAlarmLedPattern(EventBits_t alarm_bits)
+{
+    static AppAlarmLedMode_t current_mode = APP_ALARM_LED_OFF;
+    AppAlarmLedMode_t target_mode = APP_ALARM_LED_OFF;
+
+    if (alarm_bits & EVENT_FIRE_BITS)
+    {
+        target_mode = APP_ALARM_LED_FIRE;
+    }
+    else if (alarm_bits & EVENT_MQ2_BITS)
+    {
+        target_mode = APP_ALARM_LED_MQ2;
+    }
+    else if (alarm_bits & EVENT_CO_MQ7_BITS)
+    {
+        target_mode = APP_ALARM_LED_CO;
+    }
+    else if (alarm_bits & EVENT_TEMP_BITS)
+    {
+        target_mode = APP_ALARM_LED_TEMP;
+    }
+
+    if (current_mode == target_mode)
+    {
+        return;
+    }
+
+    current_mode = target_mode;
+    switch (target_mode)
+    {
+    case APP_ALARM_LED_FIRE:
+        LedManager_SetLed_Blink(1, 100, 1, 1);
+        printf("[Control] Alarm LED FIRE blink\r\n");
+        break;
+
+    case APP_ALARM_LED_MQ2:
+        LedManager_SetLed_Blink(1, 100, 2, 2);
+        printf("[Control] Alarm LED MQ2 blink\r\n");
+        break;
+
+    case APP_ALARM_LED_CO:
+        LedManager_SetLed_Blink(1, 100, 4, 4);
+        printf("[Control] Alarm LED CO blink\r\n");
+        break;
+
+    case APP_ALARM_LED_TEMP:
+        LedManager_SetLed_Blink(1, 100, 7, 7);
+        printf("[Control] Alarm LED TEMP blink\r\n");
+        break;
+
+    case APP_ALARM_LED_OFF:
+    default:
+        LedManager_SetLed_OnOff(1, false);
+        printf("[Control] Alarm LED OFF\r\n");
+        break;
+    }
+}
+
+static void App_SetFanSafe(bool enable)
+{
+    if (fan_status != enable)
+    {
+        Fan_Set(enable);
+        printf("[Control] Fan %s\r\n", enable ? "ON" : "OFF");
+        /*
+                printf("[控制] 风扇%s\r\n", enable ? "开启" : "关闭");
+        */
+    }
+}
+
+static void App_EnsureWindowSafe(uint8_t min_angle)
+{
+    if (window_angle_status < min_angle)
+    {
+        Servo_angle(min_angle);
+        printf("[Control] Window -> %d\r\n", min_angle);
+        /*
+                printf("[控制] 窗户调整到 %d 度\r\n", min_angle);
+        */
+    }
+}
+
+static void App_CloseFamenSafe(void)
+{
+    if (famen_angle_status != APP_FAMEN_CLOSE_ANGLE)
+    {
+        Famen_angle(APP_FAMEN_CLOSE_ANGLE);
+        printf("[Control] Famen -> 0\r\n");
+        /*
+                printf("[控制] 阀门关闭\r\n");
+        */
+    }
+}
+
+/**
+ * @brief 安全联动控制 - 根据报警类型执行差异化安全策略
+ *
+ * @param alarm_bits 当前报警事件位
+ *
+ * 安全策略(参考现实消防常识):
+ *
+ * | 场景     | 风扇   | 窗户    | 阀门(燃气) | 原因                          |
+ * |----------|--------|---------|------------|-------------------------------|
+ * | 火灾     | 关闭   | 90°排烟 | 关闭       | 送风助燃!必须关风扇;关阀断气  |
+ * | 甲烷泄漏 | 关闭   | 90°通风 | 关闭       | 风扇电机火花可能引爆甲烷      |
+ * | 烟雾泄漏 | 开启   | 90°排烟 | 关闭       | 烟雾无明火,风扇排烟           |
+ * | 温度异常 | 开启   | 60°散热 | 不动       | 散热为主,无泄漏风险           |
+ * | 全部正常 | 关闭   | 不动    | 不动       | 恢复常态                      |
+ *
+ * 优先级: 火灾 > 甲烷 > 烟雾 > 温度
+ * 多个报警同时存在时,取最高优先级的安全策略
+ */
+static void App_ApplySafetyControl(EventBits_t alarm_bits)
+{
+    bool has_alarm = ((alarm_bits & (EVENT_TEMP_BITS | EVENT_MQ2_BITS | EVENT_CO_MQ7_BITS | EVENT_FIRE_BITS)) != 0U);
+
+    App_SetBuzzerSafe(has_alarm);
+    App_SetAlarmLedPattern(alarm_bits);
+
+    if (!has_alarm)
+    {
+        /* 全部正常: 关闭风扇, 阀门和窗户不动(保留用户设置) */
+        App_SetFanSafe(false);
+        return;
+    }
+
+    /* === 火灾: 关风扇(防止助燃!) + 关阀断气 + 开窗排烟 === */
+    if (alarm_bits & EVENT_FIRE_BITS)
+    {
+        App_SetFanSafe(false);    /* 火灾必须关风扇! 送风=助燃 */
+        App_CloseFamenSafe();     /* 关闭燃气阀门, 切断燃料 */
+        App_EnsureWindowSafe(APP_WINDOW_DANGER_SAFE_ANGLE); /* 开窗排烟, 便于逃生 */
+        return;
+    }
+
+    /* === 甲烷泄漏: 关风扇(防电机火花引爆!) + 关阀断气 + 开窗通风 === */
+    if (alarm_bits & EVENT_CO_MQ7_BITS)
+    {
+        App_SetFanSafe(false);    /* 甲烷可燃, 风扇电机可能产生火花引爆 */
+        App_CloseFamenSafe();     /* 关闭燃气阀门, 切断气源 */
+        App_EnsureWindowSafe(APP_WINDOW_DANGER_SAFE_ANGLE); /* 开窗自然通风扩散 */
+        return;
+    }
+
+    /* === 烟雾泄漏: 开风扇排烟 + 关阀断气 + 开窗排烟 === */
+    if (alarm_bits & EVENT_MQ2_BITS)
+    {
+        App_SetFanSafe(true);     /* 烟雾无明火, 风扇加速排烟 */
+        App_CloseFamenSafe();     /* 关闭燃气阀门, 切断气源 */
+        App_EnsureWindowSafe(APP_WINDOW_DANGER_SAFE_ANGLE); /* 开窗排烟 */
+        return;
+    }
+
+    /* === 温度异常: 开风扇散热 + 开窗通风 === */
+    if (alarm_bits & EVENT_TEMP_BITS)
+    {
+        App_SetFanSafe(true);     /* 温度高, 风扇散热 */
+        App_EnsureWindowSafe(APP_WINDOW_TEMP_SAFE_ANGLE); /* 适度开窗通风 */
+    }
+}
 
 static void Name_Show()
 {
@@ -233,13 +428,13 @@ void Sensor_Task(void *pvParameters)
             /* 2. 检测人体状态（优先检测） */
             Body_State();
 
-            /* 3. 清除所有事件位 */
-            xEventGroupClearBits(xAlarmEvent, EVENT_ALL_BITS);
+            /* 3. 初始化本次扫描的报警位 */
+            EventBits_t alarm_bits = 0;
 
             /* 4. 设置人体活动事件位 */
             if (body_status)
             {
-                xEventGroupSetBits(xAlarmEvent, EVENT_BODY_BITS);
+                alarm_bits |= EVENT_BODY_BITS;
             }
 
             /* 5. 根据人体状态和做饭模式确定阈值 */
@@ -276,7 +471,7 @@ void Sensor_Task(void *pvParameters)
                 {
                     printf("[报警] 温度异常：%d℃ (阈值: %d℃, %s)\r\n",
                            temp, temp_threshold, cooking_status ? "做饭模式" : "有人在场");
-                    xEventGroupSetBits(xAlarmEvent, EVENT_TEMP_BITS);
+                    alarm_bits |= EVENT_TEMP_BITS;
                 }
                 else
                 {
@@ -290,7 +485,7 @@ void Sensor_Task(void *pvParameters)
                 const char *mode_str = cooking_status ? "做饭模式" : (body_status ? "有人" : "无人");
                 printf("[报警] 烟雾浓度异常：%.2f%% (阈值: %.0f%%, %s)\r\n",
                        adc_mq2, mq2_threshold, mode_str);
-                xEventGroupSetBits(xAlarmEvent, EVENT_MQ2_BITS);
+                alarm_bits |= EVENT_MQ2_BITS;
             }
 
             /* 8. 甲烷浓度检测 */
@@ -299,7 +494,7 @@ void Sensor_Task(void *pvParameters)
                 const char *mode_str = cooking_status ? "做饭模式" : (body_status ? "有人" : "无人");
                 printf("[报警] 甲烷浓度异常：%.2fppm (阈值: %.0fppm, %s)\r\n",
                        adc_CO_MQ7, co_threshold, mode_str);
-                xEventGroupSetBits(xAlarmEvent, EVENT_CO_MQ7_BITS);
+                alarm_bits |= EVENT_CO_MQ7_BITS;
             }
 
             /* 9. 火灾检测（无论有人无人都必须报警） */
@@ -307,14 +502,27 @@ void Sensor_Task(void *pvParameters)
             if (fire_status)
             {
                 printf("[报警] 火灾检测到！\r\n");
-                xEventGroupSetBits(xAlarmEvent, EVENT_FIRE_BITS);
+                alarm_bits |= EVENT_FIRE_BITS;
             }
+            /* 10. 增量更新事件组: 只清除不再活跃的事件位，只设置新的事件位
+             * 避免先清后设导致的报警闪烁/恢复判断时序问题
+             * - alarm_bits中为1的位: 设置(报警活跃)
+             * - alarm_bits中为0的位: 清除(报警已解除)
+             */
+            EventBits_t current_event_bits = xEventGroupGetBits(xAlarmEvent) & EVENT_ALL_BITS;
+            EventBits_t bits_to_clear = current_event_bits & ~alarm_bits; /* 当前活跃但新扫描不活跃的位 */
+            EventBits_t bits_to_set = alarm_bits & ~current_event_bits;   /* 新扫描活跃但当前未设置的位 */
 
-            /* 10. 打印当前状态 */
-            printf("[状态] 做饭:%s | 人体:%s | 温度:%d℃ | 甲烷:%.1fppm | 烟雾:%.1f%%\r\n",
+            if (bits_to_clear)
+                xEventGroupClearBits(xAlarmEvent, bits_to_clear);
+            if (bits_to_set)
+                xEventGroupSetBits(xAlarmEvent, bits_to_set);
+
+            /* 11. 打印当前状态 */
+            printf("[状态] 做饭:%s | 人体:%s | 温度:%d℃ | 甲烷:%.1fppm(阈值:%.1f) | 烟雾:%.1f%%(阈值:%.1f)\r\n",
                    cooking_status ? "开" : "关",
                    body_status ? "有人" : "无人",
-                   temp, adc_CO_MQ7, adc_mq2);
+                   temp, adc_CO_MQ7, co_threshold, adc_mq2, mq2_threshold);
 
             vTaskDelay(pdMS_TO_TICKS(APP_SENSOR_SCAN_PERIOD_MS));
         }
@@ -386,51 +594,117 @@ static void Alarm_Fire_Sound(uint8_t cycles)
 }
 
 /**
- * @brief 报警处理任务
- * @note 监听事件组，根据不同报警类型执行对应的声光报警
- *       - 火警：渐变频率报警（紧急）
- *       - 浓度超标(MQ2/CO)：110报警声音（急促断续音）
- *       - 温度异常：双音交替报警
+ * @brief 报警处理任务 - 事件组驱动架构
+ *
+ * @note 监听事件组 xAlarmEvent，根据不同报警类型执行对应的声光报警和安全控制
+ *
+ * 执行流程:
+ * 1. xEventGroupWaitBits() 阻塞等待任意报警事件位（不自动清除）
+ * 2. 读取当前事件位，执行 App_ApplySafetyControl() 安全联动控制
+ *    - 蜂鸣器/风扇/报警灯/窗户/阀门等
+ * 3. 根据事件优先级执行差异化声光报警:
+ *    - 火警(EVENT_FIRE_BITS): 渐变频率报警，最紧急
+ *    - 烟雾(EVENT_MQ2_BITS): 110断续音报警
+ *    - 甲烷(EVENT_CO_MQ7_BITS): 110断续音报警
+ *    - 温度(EVENT_TEMP_BITS): 双音交替报警
+ * 4. 报警期间持续轮询事件位，若所有报警清除则恢复正常
+ *
+ * 事件位定义:
+ *    bit0: EVENT_TEMP_BITS   温度异常
+ *    bit1: EVENT_MQ2_BITS    烟雾浓度异常
+ *    bit2: EVENT_CO_MQ7_BITS 甲烷浓度异常
+ *    bit3: EVENT_FIRE_BITS   火灾
+ *    bit4: EVENT_BODY_BITS   人体活动
  */
 void Alarm_Process_Task(void *pvParameters)
 {
     (void)pvParameters;
+    bool is_alarming = false; /* 当前是否处于报警状态 */
+
     for (;;)
     {
-        /* 阻塞等待任意报警事件，pdTRUE表示退出时自动清除事件位 */
-        uint32_t bits = xEventGroupWaitBits(xAlarmEvent, EVENT_ALL_BITS, pdTRUE, pdFALSE, portMAX_DELAY);
-
-        /* 报警开始：设置蜂鸣器状态为开启，同步到APP */
-        beep_status = true;
-        printf("[报警] 蜂鸣器状态已同步到APP: ON\r\n");
-
-        /* 火警报警 - 最高优先级，使用渐变频率，报警灯急闪 */
-        if (bits & EVENT_FIRE_BITS)
+        if (!is_alarming)
         {
+            /* === 待机态：阻塞等待任意报警事件 ===
+             * xEventGroupWaitBits 参数说明:
+             *   xAlarmEvent     - 事件组句柄
+             *   EVENT_ALL_BITS  - 等待的事件位掩码
+             *   pdFALSE         - 退出时不清除事件位(由Sensor_Task管理)
+             *   pdFALSE         - 等待任意一个事件位即可(逻辑或)
+             *   portMAX_DELAY   - 无限等待
+             */
+            EventBits_t bits = xEventGroupWaitBits(
+                xAlarmEvent,
+                EVENT_ALL_BITS,
+                pdFALSE,
+                pdFALSE,
+                portMAX_DELAY);
+
+            /* 被唤醒，过滤有效报警位 */
+            bits &= EVENT_ALL_BITS;
+            if (bits == 0)
+                continue;
+
+            is_alarming = true;
+            printf("[报警] 事件触发，进入报警态，事件位: 0x%02X\r\n", (unsigned int)bits);
+
+            /* 执行安全联动控制: 蜂鸣器/风扇/报警灯/窗户/阀门 */
+            App_ApplySafetyControl(bits);
+
+            /* 报警开始：同步蜂鸣器状态到APP(OneNET上报) */
+            beep_status = true;
+            printf("[报警] 蜂鸣器状态已同步到APP: ON\r\n");
+        }
+
+        /* === 报警态：执行声光报警 + 持续监测 === */
+        EventBits_t current_bits = xEventGroupGetBits(xAlarmEvent) & EVENT_ALL_BITS;
+
+        if (current_bits == 0)
+        {
+            /* 所有报警已清除，恢复正常 */
+            is_alarming = false;
+
+            /* 关闭蜂鸣器，停止报警灯闪烁并熄灭 */
+            PassiveBuzzer_Control(0);
+            LedManager_SetLed_OnOff(1, false);
+
+            /* 执行安全恢复控制(关闭蜂鸣器/风扇/报警灯) */
+            App_ApplySafetyControl(0);
+
+            /* 同步蜂鸣器状态到APP */
+            beep_status = false;
+            printf("[报警] 所有报警已清除，恢复正常\r\n");
+            continue;
+        }
+
+        /* 报警仍在持续，根据优先级执行差异化声光报警 */
+        if (current_bits & EVENT_FIRE_BITS)
+        {
+            /* 火警 - 最高优先级，渐变频率报警 */
             printf("[报警] 火警触发！执行火警频率报警\r\n");
-            LedManager_SetLed_Blink(1, 100, 3, 3); /* 通道1报警灯急闪: 300ms亮+300ms灭 */
-            Alarm_Fire_Sound(5);
+            LedManager_SetLed_Blink(1, 100, 3, 3);
+            Alarm_Fire_Sound(3);
         }
-        /* 浓度超标报警 - MQ2烟雾，报警灯快闪 */
-        else if (bits & EVENT_MQ2_BITS)
+        else if (current_bits & EVENT_MQ2_BITS)
         {
+            /* 烟雾浓度超标 - 110断续音报警 */
             printf("[报警] 烟雾浓度超标！执行110声音报警\r\n");
-            LedManager_SetLed_Blink(1, 100, 5, 5); /* 通道1报警灯快闪: 500ms亮+500ms灭 */
-            Alarm_110_Sound(3);
+            LedManager_SetLed_Blink(1, 100, 5, 5);
+            Alarm_110_Sound(2);
         }
-        /* 浓度超标报警 - CO甲烷，报警灯快闪 */
-        else if (bits & EVENT_CO_MQ7_BITS)
+        else if (current_bits & EVENT_CO_MQ7_BITS)
         {
+            /* 甲烷浓度超标 - 110断续音报警 */
             printf("[报警] 甲烷浓度超标！执行110声音报警\r\n");
-            LedManager_SetLed_Blink(1, 100, 5, 5); /* 通道1报警灯快闪: 500ms亮+500ms灭 */
-            Alarm_110_Sound(3);
+            LedManager_SetLed_Blink(1, 100, 5, 5);
+            Alarm_110_Sound(2);
         }
-        /* 温度异常报警，报警灯慢闪 */
-        else if (bits & EVENT_TEMP_BITS)
+        else if (current_bits & EVENT_TEMP_BITS)
         {
+            /* 温度异常 - 双音交替报警 */
             printf("[报警] 温度异常！执行温度报警\r\n");
-            LedManager_SetLed_Blink(1, 100, 8, 8); /* 通道1报警灯慢闪: 800ms亮+800ms灭 */
-            for (int i = 0; i < 4; i++)
+            LedManager_SetLed_Blink(1, 100, 8, 8);
+            for (int i = 0; i < 3; i++)
             {
                 PassiveBuzzer_Set_Freq_Duty(1000, 50);
                 vTaskDelay(150);
@@ -438,15 +712,12 @@ void Alarm_Process_Task(void *pvParameters)
                 vTaskDelay(150);
             }
         }
-        /* 报警结束：关闭蜂鸣器，停止报警灯闪烁并熄灭 */
-        PassiveBuzzer_Control(0);
-        LedManager_SetLed_OnOff(1, false); /* 停止通道1闪烁并关闭报警灯 */
 
-        /* 报警结束：设置蜂鸣器状态为关闭，同步到APP */
-        beep_status = false;
-        printf("[报警] 蜂鸣器状态已同步到APP: OFF\r\n");
+        /* 更新安全联动控制(报警类型可能变化) */
+        App_ApplySafetyControl(current_bits);
 
-        vTaskDelay(500);
+        /* 短暂延时，避免CPU占用过高，同时保持报警响应性 */
+        vTaskDelay(pdMS_TO_TICKS(50));
     }
 }
 
@@ -500,6 +771,7 @@ void My_Drivers_Init(void)
     LedManager_SetLed_PulseS(0, 10, 10, 5);
     /* 上电关闭风扇PB15（gpio.c初始化为RESET低电平=开启，需显式关闭） */
     FanMotor_OFF();
+    AlarmLedOFF();
 
     HAL_TIM_Base_Start_IT(&htim2);
     //  HAL_TIM_Base_Start(&htim1);
