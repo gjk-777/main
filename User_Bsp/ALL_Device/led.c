@@ -10,6 +10,7 @@ bool fire_status = false;
 bool body_status = false;
 bool cooking_status = false;
 bool fan_status = false;   /* 风扇状态 PB15 */
+bool fan_manual_mode = false; /* 风扇手动模式标志 */
 uint8_t window_angle_status = 0;
 uint8_t famen_angle_status = 0;
 

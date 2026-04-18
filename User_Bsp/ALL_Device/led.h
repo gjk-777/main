@@ -7,6 +7,7 @@ extern bool fire_status;
 extern bool body_status;
 extern bool cooking_status;
 extern bool fan_status;
+extern bool fan_manual_mode; /* 风扇手动模式标志：APP手动控制时为true */
 extern uint8_t window_angle_status;
 extern uint8_t famen_angle_status;
 

@@ -234,16 +234,21 @@ static void App_ApplySafetyControl(EventBits_t alarm_bits)
 
     if (!has_alarm)
     {
-        /* 全部正常: 关闭风扇, 阀门和窗户不动(保留用户设置) */
-        App_SetFanSafe(false);
+        /* 全部正常: 阀门和窗户不动(保留用户设置) */
+        /* 风扇：如果APP手动开启则保持，否则关闭 */
+        if (!fan_manual_mode || !fan_status)
+        {
+            App_SetFanSafe(false);
+        }
         return;
     }
 
     /* === 火灾: 关风扇(防止助燃!) + 关阀断气 + 开窗排烟 === */
     if (alarm_bits & EVENT_FIRE_BITS)
     {
-        App_SetFanSafe(false);    /* 火灾必须关风扇! 送风=助燃 */
-        App_CloseFamenSafe();     /* 关闭燃气阀门, 切断燃料 */
+        App_SetFanSafe(false);                              /* 火灾必须关风扇! 送风=助燃 */
+        fan_manual_mode = false;                            /* 危险报警清除手动模式 */
+        App_CloseFamenSafe();                               /* 关闭燃气阀门, 切断燃料 */
         App_EnsureWindowSafe(APP_WINDOW_DANGER_SAFE_ANGLE); /* 开窗排烟, 便于逃生 */
         return;
     }
@@ -251,8 +256,9 @@ static void App_ApplySafetyControl(EventBits_t alarm_bits)
     /* === 甲烷泄漏: 关风扇(防电机火花引爆!) + 关阀断气 + 开窗通风 === */
     if (alarm_bits & EVENT_CO_MQ7_BITS)
     {
-        App_SetFanSafe(false);    /* 甲烷可燃, 风扇电机可能产生火花引爆 */
-        App_CloseFamenSafe();     /* 关闭燃气阀门, 切断气源 */
+        App_SetFanSafe(false);                              /* 甲烷可燃, 风扇电机可能产生火花引爆 */
+        fan_manual_mode = false;                            /* 危险报警清除手动模式 */
+        App_CloseFamenSafe();                               /* 关闭燃气阀门, 切断气源 */
         App_EnsureWindowSafe(APP_WINDOW_DANGER_SAFE_ANGLE); /* 开窗自然通风扩散 */
         return;
     }
@@ -260,8 +266,8 @@ static void App_ApplySafetyControl(EventBits_t alarm_bits)
     /* === 烟雾泄漏: 开风扇排烟 + 关阀断气 + 开窗排烟 === */
     if (alarm_bits & EVENT_MQ2_BITS)
     {
-        App_SetFanSafe(true);     /* 烟雾无明火, 风扇加速排烟 */
-        App_CloseFamenSafe();     /* 关闭燃气阀门, 切断气源 */
+        App_SetFanSafe(true);                               /* 烟雾无明火, 风扇加速排烟 */
+        App_CloseFamenSafe();                               /* 关闭燃气阀门, 切断气源 */
         App_EnsureWindowSafe(APP_WINDOW_DANGER_SAFE_ANGLE); /* 开窗排烟 */
         return;
     }
@@ -269,7 +275,7 @@ static void App_ApplySafetyControl(EventBits_t alarm_bits)
     /* === 温度异常: 开风扇散热 + 开窗通风 === */
     if (alarm_bits & EVENT_TEMP_BITS)
     {
-        App_SetFanSafe(true);     /* 温度高, 风扇散热 */
+        App_SetFanSafe(true);                             /* 温度高, 风扇散热 */
         App_EnsureWindowSafe(APP_WINDOW_TEMP_SAFE_ANGLE); /* 适度开窗通风 */
     }
 }
@@ -298,9 +304,12 @@ void HomePage_Task(void *pvParameters)
 {
     (void)pvParameters;
     static uint32_t switch_count = 0;
-    static uint8_t display_mode = 1; // 0: Data, 1: Time (Start with Time)
+    static uint8_t display_mode = DISPLAY_MODE_SENSOR; // 从传感器界面开始
     static uint8_t last_link_ok = 0;
+    static uint8_t last_display_mode = 255;
+
     DHT11Senser_Read(&humi, &temp);
+
     while (1)
     {
         vTaskGetInfo(xEspLinkTaskHandle, &xEspLink_State, pdFALSE, eInvalid);
@@ -310,14 +319,45 @@ void HomePage_Task(void *pvParameters)
             {
                 OLED_Clear();
                 last_link_ok = 1;
+                last_display_mode = 255; // 强制刷新
             }
+
+            /* 更新传感器数据（每1.5秒更新一次） */
             if (count++ >= 30)
             {
                 count = 0;
                 DHT11Senser_Read(&humi, &temp);
             }
-            Data_Show(&temp, &humi, &adc_mq2, &adc_CO_MQ7);
-            OLED_Update();
+
+            /* 界面切换逻辑：每5秒切换一次 */
+            if (switch_count++ >= 100) /* 100 * 50ms = 5秒 */
+            {
+                switch_count = 0;
+
+                /* 保存当前模式 */
+                uint8_t old_mode = display_mode;
+
+                /* 切换到下一个界面 */
+                display_mode = (display_mode == DISPLAY_MODE_SENSOR) ? DISPLAY_MODE_CONTROL : DISPLAY_MODE_SENSOR;
+
+                /* 执行平滑过渡动画 */
+                OLED_Smooth_Transition(old_mode, display_mode, &temp, &humi, &adc_mq2, &adc_CO_MQ7);
+
+                last_display_mode = display_mode;
+            }
+            else
+            {
+                /* 正常刷新当前界面 */
+                if (display_mode == DISPLAY_MODE_SENSOR)
+                {
+                    Data_Show(&temp, &humi, &adc_mq2, &adc_CO_MQ7);
+                }
+                else if (display_mode == DISPLAY_MODE_CONTROL)
+                {
+                    Control_Show();
+                }
+                OLED_Update();
+            }
 
             vTaskDelay(50);
         }
@@ -327,6 +367,7 @@ void HomePage_Task(void *pvParameters)
             {
                 OLED_Clear();
                 last_link_ok = 0;
+                switch_count = 0; // 重置切换计数
             }
             ESP_link_imag();
             OLED_Update();

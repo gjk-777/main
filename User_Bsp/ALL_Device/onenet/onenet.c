@@ -651,8 +651,9 @@ void OneNet_RevPro(unsigned char *cmd)
 						if (OneNet_ParseBool(fan_json, &bool_value))
 						{
 							Fan_Set(bool_value);
+							fan_manual_mode = true; /* 标记为手动控制，安全联动在无危险时不覆盖 */
 							has_valid_param = 1;
-							Uart_printf(USART_DEBUG, "Fan(风扇) %s\r\n", bool_value ? "ON" : "OFF");
+							Uart_printf(USART_DEBUG, "Fan(风扇) %s [manual]\r\n", bool_value ? "ON" : "OFF");
 						}
 						else
 						{
