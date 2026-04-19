@@ -129,17 +129,10 @@ void Data_Show(uint8_t *temp, uint8_t *humi, float *smoke, float *co)
     /* 分隔符 */
     OLED_ShowChar(56, 48, '|', OLED_8X16);
 
-    /* 人体状态显示（在火灾后面） */
+    /* 人体状态显示（在火灾后面，固定显示有） */
     OLED_ShowChinese(64, 48, "人体");
     OLED_ShowChar(96, 48, ':', OLED_8X16);
-    if (body_status)
-    {
-        OLED_ShowChinese(104, 48, "有");
-    }
-    else
-    {
-        OLED_ShowChinese(104, 48, "无");
-    }
+    OLED_ShowChinese(104, 48, "有");
 }
 
 static void OLED_LowRAM_Transition(uint8_t mode, uint8_t *temp, uint8_t *humi, float *smoke, float *co)
@@ -170,12 +163,16 @@ static void OLED_LowRAM_Transition(uint8_t mode, uint8_t *temp, uint8_t *humi, f
 }
 
 /**
- * @brief 控制设备状态显示界面
+ * @brief 控制设备状态显示界面（静态绘制，不含动画）
  * @note 显示照明、风扇、窗户角度、阀门角度、报警状态
- * 布局：
- *   第一行：照明状态 | 风扇状态
- *   第二行：窗户角度 | 阀门角度
- *   第三行：报警状态（正常/浓度过高/燃气超标）
+ * 布局（128x64, 16px行网格）：
+ *   Row0 (Y=0):  照明:开/关  |  风扇:开/关
+ *   ─── 分隔线 (Y=15) ───
+ *   Row1 (Y=16): 窗户:xxx°  [====    ] 进度条
+ *   ─── 分隔线 (Y=31) ───
+ *   Row2 (Y=32): 阀门:xxx°  [====    ] 进度条
+ *   ─── 分隔线 (Y=47) ───
+ *   Row3 (Y=48): 当前状态:正常/报警...
  */
 void Control_Show(void)
 {
@@ -188,96 +185,124 @@ void Control_Show(void)
         alarm_bits = xEventGroupGetBits(xAlarmEvent);
     }
 
-    /* 第一行左侧：照明状态 */
-    OLED_ShowChinese(0, 0, "照明");
-    OLED_ShowChar(32, 0, ':', OLED_8X16);
+    /* ===== Row0 (Y=0): 照明 + 风扇（紧凑布局，各占64px） ===== */
+    OLED_ShowChinese(0, 0, "照明：");
     if (led_status)
     {
-        OLED_ShowChinese(40, 0, "开");
+        OLED_ShowChinese(48, 0, "开");
     }
     else
     {
-        OLED_ShowChinese(40, 0, "关");
+        OLED_ShowChinese(48, 0, "关");
     }
 
-    /* 第一行右侧：风扇状态 */
-    OLED_ShowChinese(64, 0, "风扇");
-    OLED_ShowChar(96, 0, ':', OLED_8X16);
+    /* 中间竖线分隔（1px） */
+    OLED_DrawLine(64, 2, 64, 13);
+
+    OLED_ShowChinese(66, 0, "风扇：");
     if (fan_status)
     {
-        OLED_ShowChinese(104, 0, "开");
+        OLED_ShowChinese(114, 0, "开");
     }
     else
     {
-        OLED_ShowChinese(104, 0, "关");
+        OLED_ShowChinese(114, 0, "关");
     }
 
-    /* 第二行左侧：窗户角度（使用°符号） */
-    OLED_ShowChinese(0, 20, "窗户");
-    OLED_ShowChar(32, 20, ':', OLED_8X16);
-    OLED_ShowString(40, 20, "   ", OLED_8X16); /* 清空旧数据 */
+    /* 水平分隔线 */
+    OLED_DrawLine(0, 15, 127, 15);
+
+    /* ===== Row1 (Y=16): 窗户角度 ===== */
+    OLED_ShowChinese(0, 16, "窗户");
+    OLED_ShowChar(16, 16, ':', OLED_8X16);
+    OLED_ShowString(24, 16, "    ", OLED_8X16); /* 清空旧数据 */
     sprintf(buf, "%d", window_angle_status);
-    OLED_ShowString(40, 20, buf, OLED_8X16);
-    /* 显示度数符号°（使用小圆圈模拟） */
-    OLED_DrawCircle(40 + strlen(buf) * 8 + 2, 22, 2, OLED_UNFILLED);
+    OLED_ShowString(24, 16, buf, OLED_8X16);
+    /* 度数符号°（小圆圈模拟） */
+    OLED_DrawCircle(24 + strlen(buf) * 8 + 2, 24, 2, OLED_UNFILLED);
 
-    /* 第二行右侧：阀门角度（使用°符号） */
-    OLED_ShowChinese(64, 20, "阀门");
-    OLED_ShowChar(96, 20, ':', OLED_8X16);
-    OLED_ShowString(104, 20, "   ", OLED_8X16); /* 清空旧数据 */
+    /* 角度进度条：背景框 + 填充 */
+    OLED_DrawRectangle(56, 21, 64, 6, OLED_UNFILLED);
+    {
+        uint8_t bar_len = (uint8_t)((window_angle_status * 64) / 90);
+        if (bar_len > 0)
+        {
+            OLED_DrawRectangle(56, 21, bar_len, 6, OLED_FILLED);
+        }
+    }
+
+    /* 水平分隔线 */
+    OLED_DrawLine(0, 31, 127, 31);
+
+    /* ===== Row2 (Y=32): 阀门角度 ===== */
+    OLED_ShowChinese(0, 32, "阀门");
+    OLED_ShowChar(16, 32, ':', OLED_8X16);
+    OLED_ShowString(24, 32, "    ", OLED_8X16); /* 清空旧数据 */
     sprintf(buf, "%d", famen_angle_status);
-    OLED_ShowString(104, 20, buf, OLED_8X16);
-    /* 显示度数符号°（使用小圆圈模拟） */
-    OLED_DrawCircle(104 + strlen(buf) * 8 + 2, 22, 2, OLED_UNFILLED);
+    OLED_ShowString(24, 32, buf, OLED_8X16);
+    /* 度数符号°（小圆圈模拟） */
+    OLED_DrawCircle(24 + strlen(buf) * 8 + 2, 40, 2, OLED_UNFILLED);
 
-    /* 第三行：当前状态 */
-    OLED_ShowChinese(0, 44, "当前状态");
-    OLED_ShowChar(64, 44, ':', OLED_8X16);
+    /* 角度进度条：背景框 + 填充 */
+    OLED_DrawRectangle(56, 37, 64, 6, OLED_UNFILLED);
+    {
+        uint8_t bar_len = (uint8_t)((famen_angle_status * 64) / 90);
+        if (bar_len > 0)
+        {
+            OLED_DrawRectangle(56, 37, bar_len, 6, OLED_FILLED);
+        }
+    }
+
+    /* 水平分隔线（状态区上方） */
+    OLED_DrawLine(0, 47, 127, 47);
+
+    /* ===== Row3 (Y=48): 状态 ===== */
+    OLED_ShowChinese(0, 48, "状态：");
 
     /* 清空状态信息显示区域，防止残留 */
-    OLED_ShowString(72, 44, "            ", OLED_8X16); /* 12个空格，清空整行 */
+    OLED_ShowString(48, 48, "            ", OLED_8X16);
 
     /* 根据事件位判断报警类型（优先级：火灾 > 燃气 > 烟雾 > 温度） */
     if (alarm_bits & EVENT_FIRE_BITS)
     {
-        OLED_ShowChinese(72, 44, "火警");
+        OLED_ShowChinese(48, 48, "火警");
     }
     else if (alarm_bits & EVENT_CO_MQ7_BITS)
     {
-        OLED_ShowChinese(72, 44, "燃气超标");
+        OLED_ShowChinese(48, 48, "燃气超标");
     }
     else if (alarm_bits & EVENT_MQ2_BITS)
     {
-        OLED_ShowChinese(72, 44, "浓度过高");
+        OLED_ShowChinese(48, 48, "浓度过高");
     }
     else if (alarm_bits & EVENT_TEMP_BITS)
     {
-        OLED_ShowChinese(72, 44, "温度异常");
+        OLED_ShowChinese(48, 48, "温度异常");
     }
     else
     {
-        OLED_ShowChinese(72, 44, "正常");
+        OLED_ShowChinese(48, 48, "正常");
     }
 }
 
 /**
- * @brief 平滑过渡动画效果
+ * @brief 平滑过渡动画效果（丝滑版）
  * @param from_mode 当前界面模式
  * @param to_mode 目标界面模式
  * @param temp 温度指针
  * @param humi 湿度指针
  * @param smoke 烟雾浓度指针
  * @param co 甲烷浓度指针
- * @note 使用逐行淡出淡入效果实现平滑过渡
+ * @note 淡出：匀速清除；淡入：递增延时，产生减速"瀑布落定"效果
  */
 void OLED_Smooth_Transition(uint8_t from_mode, uint8_t to_mode, uint8_t *temp, uint8_t *humi, float *smoke, float *co)
 {
-    /* 淡出效果：从上到下逐行清除 */
+    /* 淡出效果：匀速从上到下逐行清除 */
     for (uint8_t i = 0; i < 8; i++)
     {
         memset(OLED_DisplayBuf[i], 0, 128);
         OLED_UpdateArea(0, i * 8, 128, 8);
-        vTaskDelay(pdMS_TO_TICKS(30)); /* 30ms延迟，总共240ms */
+        vTaskDelay(pdMS_TO_TICKS(15)); /* 15ms/page，共120ms */
     }
 
     /* 清空显示缓冲区 */
@@ -293,11 +318,14 @@ void OLED_Smooth_Transition(uint8_t from_mode, uint8_t to_mode, uint8_t *temp, u
         Control_Show();
     }
 
-    /* 淡入效果：从上到下逐行显示 */
+    /* 淡入效果：递增延时，产生丝滑"减速落定"动画
+     * 延时序列: 8,10,12,15,18,22,26,30 ms
+     * 前几行快速闪现，后几行逐渐减速，像水滴落下自然停住 */
+    static const uint8_t fade_in_delay[8] = {8, 10, 12, 15, 18, 22, 26, 30};
     for (uint8_t i = 0; i < 8; i++)
     {
         OLED_UpdateArea(0, i * 8, 128, 8);
-        vTaskDelay(pdMS_TO_TICKS(30)); /* 30ms延迟，总共240ms */
+        vTaskDelay(pdMS_TO_TICKS(fade_in_delay[i]));
     }
 }
 
@@ -318,7 +346,14 @@ void OLED_Display_Switch(uint8_t mode, uint8_t *temp, uint8_t *humi, float *smok
         last_mode = mode;
     }
 
-    /* 只显示数据，不再切换时间界面 */
-    Data_Show(temp, humi, smoke, co);
+    /* 根据模式绘制对应界面 */
+    if (mode == DISPLAY_MODE_SENSOR)
+    {
+        Data_Show(temp, humi, smoke, co);
+    }
+    else if (mode == DISPLAY_MODE_CONTROL)
+    {
+        Control_Show();
+    }
     OLED_Update();
 }

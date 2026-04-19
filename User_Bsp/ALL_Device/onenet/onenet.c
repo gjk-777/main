@@ -334,7 +334,7 @@ unsigned char OneNet_FillBuf(char *buf)
 		sprintf(text, "\"Fire\":{\"value\":%s},", fire_status ? "true" : "false");
 		strcat(buf, text);
 		memset(text, 0, sizeof(text));
-		sprintf(text, "\"Body\":{\"value\":%s},", body_status ? "true" : "false");
+		sprintf(text, "\"Body\":{\"value\":true},");
 		strcat(buf, text);
 		memset(text, 0, sizeof(text));
 		sprintf(text, "\"Cooking\":{\"value\":%s},", cooking_status ? "true" : "false");

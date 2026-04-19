@@ -195,6 +195,15 @@ static void App_EnsureWindowSafe(uint8_t min_angle)
     }
 }
 
+static void App_CloseWindowSafe(void)
+{
+    if (window_angle_status != 0)
+    {
+        Servo_angle(0);
+        printf("[Control] Window -> 0\r\n");
+    }
+}
+
 static void App_CloseFamenSafe(void)
 {
     if (famen_angle_status != APP_FAMEN_CLOSE_ANGLE)
@@ -243,20 +252,20 @@ static void App_ApplySafetyControl(EventBits_t alarm_bits)
         return;
     }
 
-    /* === 火灾: 关风扇(防止助燃!) + 关阀断气 + 开窗排烟 === */
+    /* === 火灾: 关风扇(防止助燃!) + 关阀断气 + 关窗隔氧 === */
     if (alarm_bits & EVENT_FIRE_BITS)
     {
-        App_SetFanSafe(false);                              /* 火灾必须关风扇! 送风=助燃 */
-        fan_manual_mode = false;                            /* 危险报警清除手动模式 */
-        App_CloseFamenSafe();                               /* 关闭燃气阀门, 切断燃料 */
-        App_EnsureWindowSafe(APP_WINDOW_DANGER_SAFE_ANGLE); /* 开窗排烟, 便于逃生 */
+        App_SetFanSafe(false);   /* 火灾必须关风扇! 送风=助燃 */
+        fan_manual_mode = false; /* 危险报警清除手动模式 */
+        App_CloseFamenSafe();    /* 关闭燃气阀门, 切断燃料 */
+        App_CloseWindowSafe();   /* 关窗隔氧, 抑制火势 */
         return;
     }
 
-    /* === 甲烷泄漏: 关风扇(防电机火花引爆!) + 关阀断气 + 开窗通风 === */
+    /* === 甲烷泄漏: 开风扇排气 + 关阀断气 + 开窗通风 === */
     if (alarm_bits & EVENT_CO_MQ7_BITS)
     {
-        App_SetFanSafe(false);                              /* 甲烷可燃, 风扇电机可能产生火花引爆 */
+        App_SetFanSafe(true);                               /* 开风扇加速排出甲烷气体 */
         fan_manual_mode = false;                            /* 危险报警清除手动模式 */
         App_CloseFamenSafe();                               /* 关闭燃气阀门, 切断气源 */
         App_EnsureWindowSafe(APP_WINDOW_DANGER_SAFE_ANGLE); /* 开窗自然通风扩散 */
