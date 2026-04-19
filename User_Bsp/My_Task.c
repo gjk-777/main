@@ -28,7 +28,7 @@ extern bool beep_status; // 蜂鸣器状态（需要在报警时同步更新）
 #include "FreeRTOSConfig.h"
 #include "TaskStackTracker.h"
 #define ESP8266_ONENET_INFO "AT+CIPSTART=\"TCP\",\"mqtts.heclouds.com\",1883\r\n"
-
+// 修改版本为：260420.01
 static uint8_t Body_val;
 static uint8_t Body_val_last;
 extern uint8_t Uart1RxBuffer[256];
